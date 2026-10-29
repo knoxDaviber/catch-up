@@ -46,7 +46,7 @@ export function buildLakeLife(scene, F, getMine) {
       const px = fl.side * SEAT_X, bp = bobberPos(px); let pos = { x: bp[0], y: bp[1], z: bp[2] }, dip = 0;
       if (fl.side === mine) {
         pos = R.cur;
-        if (R.phase === 'bite') dip = -.06 - .04 * Math.abs(Math.sin(t * 9));
+        if (R.phase === 'bite' || R.phase === 'fight') dip = -.06 - .04 * Math.abs(Math.sin(t * 9));
         else if (now < R.dipUntil) dip = -.04 * Math.sin(Math.PI * (1 - (R.dipUntil - now) / 380));
       } else if (now < F.fr.dipUntil) dip = -.07 - .03 * Math.abs(Math.sin(t * 8));
       const by = pos.y + .02 + Math.sin(t * 1.6 + fl.side) * .008 + dip, tip = rodTip(px);

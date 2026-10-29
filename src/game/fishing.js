@@ -26,6 +26,7 @@ export function createFishing(hooks) {
   const sfx = n => hooks.sfx && hooks.sfx(n);
   // hooks: { say(who, text, ms), line(key, vars), friend(), mySeatX(), onBite(), onMiss(), onCatch(caught), onChange() }
   const F = {
+    challenge: false, fighting: false,
     fish: [], ripples: [], journal: [], bite: false, catchOpen: false, caught: null, splashT: -1e9, auto: true,
     rod: { phase: 'wait', nextAt: 0, fish: null, nibs: 0, nibT: 0, dipUntil: 0, winEnd: 0, t0: 0, dur: 2000, nextRip: 0, until: 0, quick: false, cur: { x: 0, y: 0, z: 0 } },
     fr: { nextAt: 0, dipUntil: 0 },
@@ -54,7 +55,7 @@ export function createFishing(hooks) {
   }
   F.reset = () => {
     F.fish.forEach(f => { if (f.mode !== 'wander') { f.mode = 'wander'; f.retarget = 0; } });
-    R.phase = 'wait'; R.fish = null; R.nextAt = performance.now() + 7000 + rnd() * 6000; F.bite = false; F.catchOpen = false; F.caught = null;
+    R.phase = 'wait'; R.fish = null; R.nextAt = performance.now() + 7000 + rnd() * 6000; F.bite = false; F.fighting = false; F.catchOpen = false; F.caught = null;
   };
   F.stepFish = (dt, now) => {
     const fl = myFloat();
@@ -98,6 +99,8 @@ export function createFishing(hooks) {
     } else if (R.phase === 'bite') {
       if (now > R.nextRip) { F.ripple(fl.x, fl.z, .12, .9, 1000, now); R.nextRip = now + 900; }
       if (now > R.winEnd) { F.bite = false; fleeFrom(f, fl.x, fl.z, now); R.phase = 'wait'; R.nextAt = now + 8000 + rnd() * 8000; hooks.say(hooks.friend(), hooks.line('miss'), 3500); hooks.onChange(); }
+    } else if (R.phase === 'fight') {
+      if (now > R.nextRip) { F.ripple(R.cur.x, R.cur.z, .08, .55, 600, now); R.nextRip = now + 420; R.dipUntil = now + 260; }
     } else if (R.phase === 'reel') {
       if ((now - R.t0) / R.dur >= 1) { R.phase = 'catch'; showCatch(f, now); }
     }
@@ -112,9 +115,23 @@ export function createFishing(hooks) {
       F.fr.nextAt = now + 26000 + rnd() * 20000;
     }
   };
+  function startReel(now) {
+    const fi = R.fish; R.phase = 'reel'; R.t0 = now; R.dur = 1700 + fi.kind.len * 1800; fi.mode = 'hooked'; sfx('reel'); hooks.onChange();
+  }
   function hook(now) {
-    const f = R.fish; F.bite = false; R.phase = 'reel'; R.t0 = now; R.dur = 1700 + f.kind.len * 1800; f.mode = 'hooked';
-    F.ripple(R.cur.x, R.cur.z, .1, 1.1, 900, now); sfx('splash'); sfx('reel'); hooks.onChange();
+    const fi = R.fish; F.bite = false; fi.mode = 'hooked';
+    F.ripple(R.cur.x, R.cur.z, .1, 1.1, 900, now); sfx('splash');
+    if (F.challenge && hooks.fight) {
+      R.phase = 'fight'; R.nextRip = now; F.fighting = true;
+      hooks.say(hooks.friend(), hooks.line('fightStart'), 3500);
+      hooks.fight(fi.kind, ok => {
+        F.fighting = false; const t = performance.now();
+        if (ok) { hooks.say(hooks.friend(), hooks.line('fightWin'), 3000); startReel(t); }
+        else { const fl = myFloat(); fleeFrom(fi, fl.x, fl.z, t); R.phase = 'wait'; R.nextAt = t + 8000 + rnd() * 6000; hooks.say(hooks.friend(), hooks.line('fightLose'), 3500); hooks.onChange(); }
+      });
+      hooks.onChange(); return;
+    }
+    startReel(now);
   }
   /** Strike: reels in on a bite, spooks the fish if you are too early. */
   F.strike = () => {

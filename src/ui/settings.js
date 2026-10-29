@@ -1,7 +1,7 @@
 /* Player settings, remembered in the browser. */
 const KEY = 'catchup.settings.v1';
 import { MUSIC } from '../assets/manifest.js';
-export const DEFAULTS = { cycle: true, dayMin: 12, fire: 'auto', sway: true, tilt: true, musicVol: .5, sfxVol: .7, ambVol: .5, muted: false, track: MUSIC[0].id, playMode: 'all' };
+export const DEFAULTS = { cycle: true, dayMin: 12, fire: 'auto', sway: true, tilt: true, challenge: false, musicVol: .5, sfxVol: .7, ambVol: .5, muted: false, track: MUSIC[0].id, playMode: 'all' };
 export function loadSettings() {
   const s = { ...DEFAULTS };
   try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { /* storage is optional */ }

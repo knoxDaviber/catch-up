@@ -8,7 +8,7 @@
    FISH_ART  one image per fish kind (transparent PNG/WebP, fish facing RIGHT). null = drawn placeholder. */
 
 export const MUSIC = [
-  { id: 'morning', name: 'Morning Light', src: 'assets/audio/music/morning.mp3' },
+  { id: 'morning', name: 'Morning Light', src: '/assets/audio/music/morning.mp3' },
   { id: 'slowing_down', name: 'Slowing Down', src: 'assets/audio/music/slowing_down.mp3' },
   { id: 'evening', name: 'Calm Night', src: 'assets/audio/music/evening.mp3' },
   //{ id: 'placeholder-pad', name: 'Placeholder pad (synth)', src: null },
@@ -40,5 +40,5 @@ export const AMBIENCE = {
 
 export const FISH_ART = {
   minnow: null, perch: null, bluegill: null, trout: null, carp: null, catfish: null,
-  minnow: 'assets/fish/minnow.png',
+  minnow: '/assets/fish/minnow.png',
 };

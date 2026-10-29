@@ -9,6 +9,7 @@ import { line } from './game/lines.js';
 import { createDialogue } from './game/dialogue.js';
 import { createDayNight } from './scene/daynight.js';
 import { buildCampfire } from './scene/campfire.js';
+import { createFight } from './game/fight.js';
 import { buildGallery } from './scene/gallery.js';
 import { fishHtml } from './assets/fishart.js';
 import { createAudio } from './audio/audio.js';
@@ -58,7 +59,8 @@ const nameOf = p => (p === 'liam' ? 'Liam' : 'Xiao');
 let myColor = 'b', plies = 0, swapAsked = false, askTimer = 0;   // you start as black; sides can be swapped early or between games
 const friendColor = () => (myColor === 'b' ? 'w' : 'b');
 const boardSide = () => (myColor === 'b' ? side() : -side());   // keeps your pieces on your side of the stump
-const playable = () => scene_ === 'game' && view === 'board' && !rig.tween && !asking && game && !game.game_over() && game.turn() === myColor;
+const overlayOpen = () => scene_ !== 'game' || asking || talking || fishing.catchOpen || fishing.fighting || !$('settings').hidden;
+const playable = () => scene_ === 'game' && view === 'board' && !rig.tween && !asking && !talking && $('settings').hidden && game && !game.game_over() && game.turn() === myColor;
 
 let lastSpoke = 0;
 const fk = () => (player === 'liam' ? 'xiao' : 'liam');            // the friend's key
@@ -152,7 +154,7 @@ function offerRematch() {
 /* ---------- conversation ---------- */
 const story = createDialogue();
 let talking = false, inviteUntil = 0, nextIdle = performance.now() + 45000, nextInvite = performance.now() + 100000;
-const canTalk = () => scene_ === 'game' && !asking && !talking && !fishing.catchOpen && story.any(fk());
+const canTalk = () => scene_ === 'game' && !asking && !talking && !fishing.catchOpen && !fishing.fighting && story.any(fk());
 function renderTalk(n, next) {
   $('tWho').textContent = n.who; $('tText').textContent = n.text;
   const box = $('tChoices'); box.textContent = ''; $('talk').hidden = false;
@@ -180,7 +182,9 @@ const fishing = createFishing({
   say, friend, mySeatX, sfx: n => audio.sfx(n), line: (key, vars) => line(fk(), key, vars),
   onChange: () => updateUI(),
   onCatch: c => showCatch(c),
+  fight: (kind, done) => startFight(kind, done),
 });
+fishing.challenge = settings.challenge;
 fishing.init();
 const lakeUpdate = buildLakeLife(scene, fishing, () => (mySeatX() < 0 ? -1 : 1));
 let pendingStrike = false;
@@ -201,7 +205,7 @@ $('talkBtn').addEventListener('click', openTopics);
 $('swapBtn').addEventListener('click', () => { if (game && game.game_over()) offerRematch(); else askToSwap(); });
 $('nameForm').addEventListener('submit', e => { e.preventDefault(); finishCatch($('nameIn').value); });
 $('catchSkip').addEventListener('click', () => finishCatch(''));
-function strike() { if (scene_ === 'game' && view === 'fish' && !rig.tween) fishing.strike(); }
+function strike() { if (scene_ === 'game' && view === 'fish' && !rig.tween && !overlayOpen()) fishing.strike(); }
 
 /* ---------- people: who is you ---------- */
 function syncPeople() {
@@ -216,7 +220,7 @@ function setScene(s) {
   scene_ = s; rig.mode = s;
   stage.classList.toggle('intro', s === 'title' || s === 'select');
   stage.classList.toggle('ingame', s === 'game' || s === 'sit' || s === 'leaving');
-  $('intro').hidden = s !== 'title'; $('pick').hidden = s !== 'select'; $('quitBtn').hidden = s !== 'game'; $('topRight').hidden = s !== 'game'; $('galBack').hidden = s !== 'gallery';
+  $('intro').hidden = s !== 'title'; $('pick').hidden = s !== 'select'; $('quitBtn').hidden = s !== 'game'; $('topRight').hidden = s !== 'game'; $('dial').hidden = s !== 'game'; $('galBack').hidden = s !== 'gallery';
   stage.classList.toggle('ingallery', s === 'gallery');
   updateUI();
 }
@@ -235,7 +239,7 @@ function startPick(p) {
 }
 function quitToTitle() {
   if (scene_ !== 'game') return;
-  audio.sfx('grunt'); scene_ = 'leaving'; clearTimeout(friendTimer); clearTimeout(askTimer); closeAsk(); $('quitBtn').hidden = true;
+  audio.sfx('grunt'); fight.cancel(); $('fight').hidden = true; scene_ = 'leaving'; clearTimeout(friendTimer); clearTimeout(askTimer); closeAsk(); $('quitBtn').hidden = true;
   closeTalk(); say(nameOf(player), (player === 'liam' ? '*grunt* ' : '*stands, stiffly* ') + line(player, 'quit' + story.tier(), { you: friend() }), 3600);
   blackout(() => {
     rig.tween = null; rig.wide = 1; rig.u = 0; rig.sel = 0; rig.selTarget = 0; rig.sitT = -1; view = 'wide';
@@ -243,9 +247,9 @@ function quitToTitle() {
   }, 2600);
 }
 function goView(v) {
-  if (scene_ !== 'game' || v === view) return;
+  if (scene_ !== 'game' || v === view || fishing.fighting) return;
   view = v; rig.goTo(v === 'board' ? 'board' : 'fish', 2.8, () => {
-    if (v === 'fish' && pendingStrike) { pendingStrike = false; if (fishing.bite) fishing.strike(); }
+    if (v === 'fish' && pendingStrike) { pendingStrike = false; if (fishing.bite && !overlayOpen()) fishing.strike(); }
     else if (v === 'board' && !fishing.bite && game.turn() === myColor) say(friend(), 'Take your time.', 3000);
     updateUI();
   });
@@ -257,9 +261,9 @@ function updateUI() {
   const bite = fishing.bite;
   $('panChip').textContent = view === 'fish' ? (bite ? 'Reel in!' : 'Look at the board ▾') : (bite ? 'A fish! Back to the water ▴' : 'Back to the water ▴');
   $('panChip').classList.toggle('urgent', bite);
-  $('panChip').hidden = scene_ !== 'game' || asking;
+  $('panChip').hidden = scene_ !== 'game' || asking || fishing.fighting;
   const tb = $('talkBtn'); tb.hidden = !canTalk();
-  const sb = $('swapBtn'); sb.hidden = !(scene_ === 'game' && view === 'board' && !rig.tween && !asking && game && (game.game_over() || canAskSwap()));
+  const sb = $('swapBtn'); sb.hidden = !(scene_ === 'game' && view === 'board' && !rig.tween && !asking && !fishing.fighting && game && (game.game_over() || canAskSwap()));
   sb.textContent = game && game.game_over() ? 'Play again\u2026' : 'Ask to swap sides';
   stage.classList.toggle('playable', !!playable());
 }
@@ -270,7 +274,7 @@ function openGallery() {
   if (scene_ !== 'title' && scene_ !== 'game') return; galleryFrom = scene_; closeTalkIfOpen();
   blackout(() => {
     const n = gallery.setFish(fishing.journal); gallery.enter(fishing.journal); setScene('gallery');
-    $('galNote').hidden = n > 0; $('galNote').textContent = 'The tank is empty. Catch a fish and give it a name, and it will move in.';
+    $('galNote').hidden = false; $('galNote').textContent = n > 0 ? 'Click the tank for a closer look. Drag a fish to move it.' : 'The tank is empty. Catch a fish and give it a name, and it will move in.';
   }, 500);
 }
 function closeGallery() { if (scene_ !== 'gallery') return; hideFishInfo(); blackout(() => { setScene(galleryFrom); $('galNote').hidden = true; }, 400); }
@@ -289,11 +293,14 @@ function galPick(e) {
 }
 canvas.addEventListener('pointerdown', e => {
   if (scene_ !== 'gallery') return; const f = galPick(e);
-  if (f) { drag = { f, x0: e.clientX, y0: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); audio.sfx('pop'); } else hideFishInfo();
+  if (f) { drag = { f, x0: e.clientX, y0: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); audio.sfx('pop'); return; }
+  hideFishInfo();
+  const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); galRay.setFromCamera(galNdc, gallery.camera);
+  if (gallery.view === 'room' && galRay.intersectObject(gallery.glass, false).length) { gallery.setView('tank'); $('galNote').hidden = true; audio.sfx('pop'); }
 });
 canvas.addEventListener('pointermove', e => {
   if (scene_ !== 'gallery') return;
-  if (!drag) { canvas.style.cursor = galPick(e) ? 'grab' : ''; return; }
+  if (!drag) { let cur = galPick(e) ? 'grab' : ''; if (!cur && gallery.view === 'room') { const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); galRay.setFromCamera(galNdc, gallery.camera); if (galRay.intersectObject(gallery.glass, false).length) cur = 'zoom-in'; } canvas.style.cursor = cur; return; }
   if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 6) drag.moved = true;
   if (drag.moved) {
     const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -304,20 +311,58 @@ const endDrag = () => { if (!drag) return; if (!drag.moved) showFishInfo(drag.f)
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
 $('mGallery').addEventListener('click', openGallery);
 $('galBtn').addEventListener('click', openGallery);
-$('galBack').addEventListener('click', closeGallery);
+$('galBack').addEventListener('click', () => { if (gallery.view === 'tank') { gallery.setView('room'); hideFishInfo(); $('galNote').hidden = false; } else closeGallery(); });
 $('fiClose').addEventListener('click', hideFishInfo);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && scene_ === 'gallery') { if (!$('fishInfo').hidden) hideFishInfo(); else closeGallery(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && scene_ === 'gallery') { if (!$('fishInfo').hidden) hideFishInfo(); else if (gallery.view === 'tank') { gallery.setView('room'); $('galNote').hidden = false; } else closeGallery(); } });
+
+/* ---------- reel-in challenge ---------- */
+const fight = createFight(); const keysHeld = new Set();
+function startFight(kind, done) {
+  $('ffish').style.background = kind.col; $('ffish').style.color = kind.col; $('fight').hidden = false; updateUI();
+  fight.start(kind, ok => { $('fight').hidden = true; done(ok); updateUI(); });
+}
+function updateFight(dt) {
+  if (!fight.active) return;
+  const dx = ((keysHeld.has('ArrowRight') || keysHeld.has('d') ? 1 : 0) - (keysHeld.has('ArrowLeft') || keysHeld.has('a') ? 1 : 0)) * dt * 1.1; if (dx) fight.nudge(dx);
+  fight.update(dt); if (!fight.active) return;
+  $('fzone').style.left = ((fight.zone - fight.zw / 2) * 100) + '%'; $('fzone').style.width = (fight.zw * 100) + '%'; $('fzone').classList.toggle('in', !!fight.inside);
+  $('ffish').style.left = (fight.fish * 100) + '%'; $('fprog').style.width = (fight.prog * 100) + '%';
+}
+function fightPointer(e) { if (!fight.active) return; const r = $('fbar').getBoundingClientRect(); fight.move((e.clientX - r.left) / r.width); }
+addEventListener('pointermove', fightPointer);
+addEventListener('keydown', e => { keysHeld.add(e.key); if (fight.active && e.key.startsWith('Arrow')) e.preventDefault(); });
+addEventListener('keyup', e => keysHeld.delete(e.key));
+
+/* ---------- time of day dial and little conveniences ---------- */
+let dialDrag = false;
+function updateDial() {
+  const d = $('dial'); if (d.hidden) return; const h = dayNight.hour, tr = d.getBoundingClientRect().height || 1;
+  $('dknob').style.top = (h / 24 * 100) + '%'; $('dlabel').style.top = (h / 24 * 100) + '%'; $('dknob').classList.toggle('moon', h < 5.8 || h >= 19.6);
+  $('dlabel').textContent = clockText(h); d.setAttribute('aria-valuenow', h.toFixed(1)); d.setAttribute('aria-valuetext', clockText(h));
+}
+function dialSet(e) { const r = $('dial').getBoundingClientRect(); dayNight.set(Math.min(24, Math.max(0, (e.clientY - r.top) / r.height * 24)) % 24); }
+$('dial').addEventListener('pointerdown', e => { dialDrag = true; $('dial').classList.add('on'); $('dial').setPointerCapture(e.pointerId); dialSet(e); });
+$('dial').addEventListener('pointermove', e => { if (dialDrag) dialSet(e); });
+const dialEnd = () => { dialDrag = false; $('dial').classList.remove('on'); };
+$('dial').addEventListener('pointerup', dialEnd); $('dial').addEventListener('pointercancel', dialEnd);
+$('dial').addEventListener('wheel', e => { e.preventDefault(); dayNight.set(dayNight.hour + Math.sign(e.deltaY) * .3); }, { passive: false });
+$('dial').addEventListener('keydown', e => { if (e.key === 'ArrowDown' || e.key === 'ArrowRight') dayNight.set(dayNight.hour + .25); if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') dayNight.set(dayNight.hour - .25); });
+let toastT = 0;
+function toast(text) { const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600); }
+$('musicBtn').addEventListener('click', () => {
+  const list = audio.tracks(), i = list.findIndex(t => t.id === settings.track), next = list[(i + 1) % list.length];
+  audio.setTrack(next.id); saveSettings(settings); toast('\u266A ' + next.name + (list.length < 2 ? ' (add more tracks in assets)' : ''));
+});
 
 /* ---------- settings panel ---------- */
 let settingsFrom = null;
-function syncSettingsClock() { if (document.activeElement !== $('sHour')) $('sHour').value = dayNight.hour; $('sHourOut').textContent = clockText(dayNight.hour); }
 function openSettings() {
   $('sCycle').checked = settings.cycle; $('sLen').value = settings.dayMin; $('sLenOut').textContent = `${settings.dayMin} min`;
   $('sFire').value = settings.fire; $('sSway').checked = settings.sway; $('sTilt').checked = settings.tilt; $('sSway').disabled = reduce;
   $('sMute').checked = settings.muted;
   [['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol']].forEach(([id, k]) => { $(id).value = settings[k]; $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; });
   const tr = $('sTrack'); tr.textContent = ''; audio.tracks().forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; tr.appendChild(o); }); tr.value = settings.track; $('sMode').value = settings.playMode;
-  syncSettingsClock(); settingsFrom = document.activeElement; $('settings').hidden = false; $('setClose').focus();
+  $('sChallenge').checked = settings.challenge; settingsFrom = document.activeElement; $('settings').hidden = false; $('setClose').focus();
 }
 function closeSettings() { $('settings').hidden = true; saveSettings(settings); settingsFrom && settingsFrom.focus && settingsFrom.focus(); }
 $('mSettings').addEventListener('click', openSettings);
@@ -325,7 +370,7 @@ $('gearBtn').addEventListener('click', openSettings);
 $('setClose').addEventListener('click', closeSettings);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('settings').hidden) closeSettings(); });
 $('sCycle').addEventListener('change', e => { settings.cycle = e.target.checked; applySettings(); });
-$('sHour').addEventListener('input', e => { dayNight.set(parseFloat(e.target.value)); $('sHourOut').textContent = clockText(dayNight.hour); });
+$('sChallenge').addEventListener('change', e => { settings.challenge = e.target.checked; fishing.challenge = e.target.checked; });
 $('sLen').addEventListener('input', e => { settings.dayMin = parseInt(e.target.value, 10); $('sLenOut').textContent = `${settings.dayMin} min`; applySettings(); });
 $('sMute').addEventListener('change', e => { settings.muted = e.target.checked; audio.applyVolumes(); });
 [['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol']].forEach(([id, k]) => $(id).addEventListener('input', e => { settings[k] = parseFloat(e.target.value); $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; audio.applyVolumes(); if (k === 'sfxVol') audio.sfx('catch'); }));
@@ -346,7 +391,7 @@ $('panChip').addEventListener('click', () => {
   else { if (fishing.bite) pendingStrike = true; goView('fish'); }
 });
 document.addEventListener('keydown', e => { if (e.metaKey || e.ctrlKey || e.altKey || scene_ !== 'game') return; if (e.key === '1') goView('fish'); if (e.key === '2') goView('board'); });
-document.addEventListener('keydown', e => { if (e.key === ' ' && scene_ === 'game' && view === 'fish' && !fishing.catchOpen && !['INPUT', 'BUTTON'].includes(e.target.tagName)) { e.preventDefault(); strike(); } });
+document.addEventListener('keydown', e => { if (e.key === ' ' && scene_ === 'game' && view === 'fish' && !overlayOpen() && !['INPUT', 'BUTTON'].includes(e.target.tagName)) { e.preventDefault(); strike(); } });
 
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function pickSquare(e) {
@@ -377,7 +422,7 @@ function frame(now) {
   if (now - lastTick > 1000) { lastTick = now; tickTalk(now); audio.setScene(dayNight.night, campfire.level); }
   rig.step(now, dt); fishing.stepFish(dt, now); if (scene_ === 'game') fishing.stepRod(now); lakeUpdate(now); world.update(now);
   dayNight.update(dt); campfire.update(now, dt, settings.fire === 'always' || (settings.fire === 'auto' && dayNight.night > .28) ? 1 : 0);
-  if (!$('settings').hidden) syncSettingsClock();
+  updateDial(); updateFight(dt);
   stage.classList.toggle('night', dayNight.night > .5);
   syncPeople(); if (scene_ === 'select') placePick();
   if (scene_ === 'gallery') { gallery.update(now, dt, dayNight.night); renderer.render(gallery.scene, gallery.camera); } else renderer.render(scene, camera);
@@ -385,4 +430,4 @@ function frame(now) {
 }
 newGame(); rig.wide = 1; rig.side = 1; setScene('title');
 requestAnimationFrame(frame);
-window.__cu = { gallery, openGallery, audio, dayNight, campfire, settings, story, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say };
+window.__cu = { fight, gallery, openGallery, audio, dayNight, campfire, settings, story, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say };

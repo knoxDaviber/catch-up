@@ -20,11 +20,11 @@ export function fishTexture(k) {
   img.onload = () => {   // draw into a canvas first: uploads are more reliable than using an SVG image directly
     const w = Math.min(1024, img.naturalWidth || 280), h = Math.round(w * ((img.naturalHeight || 140) / (img.naturalWidth || 280)));
     const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
-    tex.image = c; tex.needsUpdate = true;
+    tex.userData.aspect = h / w; tex.image = c; tex.needsUpdate = true;
   };
   if (art) { img.onerror = () => { img.onerror = null; img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(fishSvgString(k)); }; img.src = art; }
   else img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(fishSvgString(k));
   // the placeholder drawing faces left (head at the left); mirror it so every fish faces right
-  tex.userData = { faceLeft: !art };
+  tex.userData.faceLeft = !art; tex.userData.aspect = .5;
   cache.set(k.id, tex); return tex;
 }
