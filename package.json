@@ -1,0 +1,14 @@
+{
+  "name": "catch-up",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "serve": "node serve.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node src/chess/engine.test.js"
+  },
+  "dependencies": { "three": "^0.180.0" },
+  "devDependencies": { "vite": "^7.0.0" }
+}

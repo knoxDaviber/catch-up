@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catch Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Patrick+Hand&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/ui/style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<main class="page">
+  <div class="stage intro" id="stage">
+    <canvas id="view" aria-label="Lakeside camp. Two friends sit in camp chairs by a lake with a chess board on a stump between them."></canvas>
+    <div class="paper"></div><div class="vignette"></div>
+    <span class="tag" id="viewTag"></span>
+    <div class="caption" id="caption" aria-live="polite"><b id="capWho"></b><span id="capText"></span></div>
+    <button class="chip" id="panChip" type="button"></button>
+    <div id="intro">
+      <div class="logo"><h1>Catch Up</h1><p>Cozy chess by the fishing hole</p></div>
+      <nav class="menu" aria-label="Main menu">
+        <button class="mbtn" id="mSingle" type="button">Single player</button>
+        <button class="mbtn" type="button" disabled>Invite a friend <small>soon</small></button>
+        <div class="mrow"><button class="mbtn" id="mGallery" type="button">Gallery</button><button class="mbtn" id="mSettings" type="button">Settings</button></div>
+      </nav>
+    </div>
+    <div class="pick" id="pick" hidden>
+      <div class="ptitle">Pick your player</div><div class="psub">Who are you today?</div>
+      <button class="pk" id="pickLiam" type="button">Liam</button>
+      <button class="pk" id="pickXiao" type="button">Xiao</button>
+      <button class="mbtn pback" id="pickBack" type="button">Back</button>
+    </div>
+    <div class="journal" id="journal" aria-live="polite" hidden></div>
+    <div class="catch" id="catch" role="dialog" aria-labelledby="catchTitle" hidden>
+      <div id="catchFish"></div><h3 id="catchTitle"></h3><p id="catchMeta"></p>
+      <div class="names" id="catchNames" role="group" aria-label="Suggested names"></div>
+      <form id="nameForm"><input id="nameIn" type="text" maxlength="16" placeholder="Or type a name" aria-label="Fish name" autocomplete="off"><button class="skip" type="submit">Name it</button></form>
+      <button class="skip" id="catchSkip" type="button">Keep it as it is</button>
+    </div>
+    <button class="chip talk" id="talkBtn" type="button" hidden>Talk</button>
+    <div class="talk-panel" id="talk" role="dialog" aria-live="polite" hidden><div class="tline"><b id="tWho"></b><span id="tText"></span></div><div class="tchoices" id="tChoices"></div></div>
+    <button class="chip swap" id="swapBtn" type="button" hidden></button>
+    <div class="catch ask" id="ask" role="dialog" aria-labelledby="askText" hidden><h3 id="askText"></h3><div class="names" id="askBtns"></div></div>
+    <div class="topright" id="topRight" hidden><button class="gear" id="galBtn" type="button">Gallery</button><button class="gear" id="gearBtn" type="button">Settings</button></div>
+    <button class="qbtn" id="galBack" type="button" hidden>&lsaquo; Back</button>
+    <div class="galnote" id="galNote" hidden></div>
+    <div class="catch" id="fishInfo" role="dialog" aria-labelledby="fiTitle" hidden><div id="fiArt"></div><h3 id="fiTitle"></h3><p id="fiMeta"></p><button class="skip" id="fiClose" type="button">Close</button></div>
+    <div class="settings" id="settings" role="dialog" aria-labelledby="setTitle" hidden>
+      <h2 id="setTitle">Settings</h2>
+      <section><h3>Day and night</h3>
+        <label class="srow"><input type="checkbox" id="sCycle"> Time passes</label>
+        <label class="srow"><span>Time of day</span><input type="range" id="sHour" min="0" max="24" step="0.05"><output id="sHourOut"></output></label>
+        <label class="srow"><span>Day length</span><input type="range" id="sLen" min="2" max="30" step="1"><output id="sLenOut"></output></label>
+      </section>
+      <section><h3>Sound</h3>
+        <label class="srow"><input type="checkbox" id="sMute"> Mute everything</label>
+        <label class="srow"><span>Music</span><input type="range" id="sMusic" min="0" max="1" step="0.05"><output id="sMusicOut"></output></label>
+        <label class="srow"><span>Effects</span><input type="range" id="sSfx" min="0" max="1" step="0.05"><output id="sSfxOut"></output></label>
+        <label class="srow"><span>Ambience</span><input type="range" id="sAmb" min="0" max="1" step="0.05"><output id="sAmbOut"></output></label>
+        <label class="srow"><span>Track</span><select id="sTrack"></select></label>
+        <label class="srow"><span>Playback</span><select id="sMode"><option value="all">Play all tracks</option><option value="one">Repeat this track</option></select></label>
+      </section>
+      <section><h3>Campfire</h3>
+        <label class="srow"><span>Fire</span><select id="sFire"><option value="auto">Lights at dusk</option><option value="always">Always lit</option><option value="off">Off</option></select></label>
+      </section>
+      <section><h3>Camera</h3>
+        <label class="srow"><input type="checkbox" id="sSway"> Gentle sway</label>
+        <label class="srow"><input type="checkbox" id="sTilt"> Head tilt when looking at the board</label>
+      </section>
+      <button class="mbtn" id="setClose" type="button">Done</button>
+    </div>
+    <button class="qbtn" id="quitBtn" type="button" hidden>&lsaquo; Quit</button>
+    <div class="fade" id="fade"></div>
+  </div>
+</main>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
