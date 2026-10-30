@@ -44,18 +44,12 @@ function buildPerson(shirt, cap, chairColor, x, pants) {
   const head = new THREE.Group(); head.position.set(0, HEAD_Y, .2); g.add(head);
   const skull = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), mat(PAL.skin)); head.add(skull);
   const hat = new THREE.Mesh(new THREE.SphereGeometry(.185, 10, 6, 0, Math.PI * 2, 0, Math.PI * .55), mat(cap)); hat.position.y = .02; head.add(hat);
-<<<<<<< HEAD
   // fishing rod, held out over the lake, and the same rod resting against the chair (away from the board) when it's put down
   const rod = limb(g, [.12, .85, -.3], [.1, 2.2, -2.3], .02, 0x3a2b22);
   const rest = limb(g, [-dir * .42, .02, .12], [-dir * .72, 1.95, -1.3], .02, 0x3a2b22); rest.visible = false;
   // invisible, fatter stand-ins so the thin rods are easy to point at (raycasts ignore visibility)
   const hit = (a, b) => { const m = limb(g, a, b, .1, 0xffffff); m.visible = false; return m; };
   return { group: g, head, rod, rest, rodHit: hit([.12, .95, -.45], [.1, 2.2, -2.3]), restHit: hit([-dir * .45, .3, -.05], [-dir * .72, 1.95, -1.3]) };
-=======
-  // fishing rod, held out over the lake
-  limb(g, [.12, .85, -.3], [.1, 2.2, -2.3], .02, 0x3a2b22);
-  return { group: g, head };
->>>>>>> origin/main
 }
 
 function boardTexture() {
@@ -120,7 +114,6 @@ export function buildWorld(scene) {
   // fence with a gap at the path
   for (let x = -15; x <= 15; x += 2.5) { if (Math.abs(x) < 1.8) continue; box(scene, x, .6, 12, .12, 1.2, .12, 0x7b5c40); if (x + 2.5 <= 15 && Math.abs(x + 2.5) >= 1.8) { box(scene, x + 1.25, .95, 12, 2.5, .08, .06, 0x8d6b4b); box(scene, x + 1.25, .55, 12, 2.5, .08, .06, 0x8d6b4b); } }
 
-<<<<<<< HEAD
   // things within reach of each chair, on the side away from the board: a radio on a crate and the fish bucket.
   // Look around while fishing to find them; they are how music and the fish gallery are reached in a game.
   W.hot = [];
@@ -140,8 +133,6 @@ export function buildWorld(scene) {
       { key: 'rod', who, obj: P.rodHit, at: [px + .1, 1.75, -1.55] }, { key: 'pickup', who, obj: P.restHit, at: [px + s * .64, 1.5, -.9] });
   });
 
-=======
->>>>>>> origin/main
   W.update = t => { W.animated.forEach(f => f(t)); };
   return W;
 }

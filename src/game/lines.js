@@ -25,7 +25,6 @@ export const LINES = {
     friendFish: ['Oh, got one. Just a little thing.', 'Nibble. Nothing yet.', 'Hm. Something is down there.'],
     small: ["Ha. That one's tiny.", 'Cute. Throw it back?'], normal: ['Nice one.', 'Not bad at all.'], big: ['Whoa. Look at the size of that.', "Okay. That's a keeper."],
     nick: ['"{n}". Suits it.', 'Welcome to the family, {n}.'],
-<<<<<<< HEAD
     release: ['Good. Let it grow.', 'Off you go.', 'Kind of you.'],
     challengeAsk: ["Want more of a challenge? They come in too easy.", "That was easy. Want them to fight back?"],
     challengeOn: ["Good. Keep it in the light.", "Right. Don't let them get ahead of you."],
@@ -46,15 +45,6 @@ export const LINES = {
     nibble: ['Something is looking at your float.', 'Your float. Just so you know.'],
     radioTip: ['There is a radio by your chair, if you want music. It mostly works.'],
     castRemind: ['Your line is still out of the water, by the way.', 'You know you have to cast, right? They will not climb up.'],
-=======
-    idleFish: ['The water looks nice today.', 'I forgot how quiet it is out here.', 'Do the fish judge us? I think they judge us.', 'My neck has not hurt in two days. A record.'],
-    idleChess: ['You used to play fast. I am glad you slowed down.', 'The board looks good on that stump.', 'I like this opening. I think.'],
-    idleAny: ['Mm.', 'The light is nice.', 'I should come out here more.'],
-    invite: ['Can I ask you something?', 'Do you want to talk, or just fish?'],
-    quitLow: ["It's been nice catching up with you, {you}...", "Right. Thanks for coming, {you}."],
-    quitMid: ["It's been nice catching up with you, {you}. Really.", "Thanks for this, {you}. I mean it."],
-    quitHigh: ["It's been nice catching up with you, {you}. Let's not leave it ten years.", "Same time next year? Sooner. Sooner, {you}."],
->>>>>>> origin/main
   },
   liam: {
     yourMove: ['Your move, mate.', 'Go on, tear me apart.', 'Whenever. I am not going anywhere.'],
@@ -79,7 +69,6 @@ export const LINES = {
     friendFish: ['Got one! Nope. Weed.', 'Something is nibbling. Possibly my dignity.', 'Ooh. A nibble.'],
     small: ["Ha! That one's a baby.", 'Aww. Throw it back?'], normal: ['Nice one, mate.', 'Look at that. Dinner.'], big: ["Whoa! That's a unit!", 'Get in! That one has seen things.'],
     nick: ['"{n}"! Perfect.', 'Welcome to the family, {n}.'],
-<<<<<<< HEAD
     release: ['Aww, go on then, little mate.', 'Catch and release. Very noble.', "Off you pop. Tell your mates about us."],
     challengeAsk: ["Bit easy, that. Want more of a challenge, mate?", "Reckon you could handle a fighter? Want more of a challenge?"],
     challengeOn: ["That's the spirit! Keep it in the light.", "Get in. Now they'll fight back."],
@@ -100,15 +89,6 @@ export const LINES = {
     nibble: ['Oi, something is having a sniff at your float.', 'Your float is getting some attention.'],
     radioTip: ['Radio is by your chair if you want some tunes. Heaps better than my singing.'],
     castRemind: ['Your line is still out, mate. Fish will not jump in on their own.'],
-=======
-    idleFish: ['Best seat in the house.', 'This is the closest I have been to quiet in about ten years.', 'Do you reckon they can hear us? The fish. I reckon they can hear us.', 'I could do this every weekend. Do not tell Mary.'],
-    idleChess: ['You have got that look. The scheming look.', 'I used to be good at this. I was fitter then.', 'Great stump. Whoever found this stump deserves a medal.'],
-    idleAny: ['Mm. Good air out here.', 'I am so full of cereal facts. Ask me anything.', 'Cold one later?'],
-    invite: ['Can I tell you something?', 'Fancy a chat, or just a quiet one?'],
-    quitLow: ["It's been nice catching up with you, {you}...", 'Right. See you around, {you}.'],
-    quitMid: ["It's been nice catching up with you, {you}. Properly nice.", 'Good to see you, {you}. Come back soon.'],
-    quitHigh: ["It's been nice catching up with you, {you}. Do not be a stranger. I mean it.", "Ring me. Soon. I'm serious, {you}."],
->>>>>>> origin/main
   },
 };
 

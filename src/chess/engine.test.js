@@ -19,13 +19,10 @@ const g=new E.MiniChess();
 console.log('fool mate: checkmate',g.in_checkmate(),'game_over',g.game_over(),'turn',g.turn());
 console.log('illegal move rejected:',new E.MiniChess().move({from:'e2',to:'e5'})===null);
 const h=new E.MiniChess();console.log('moves from g1:',h.moves({square:'g1'}).map(m=>m.to).join(','));
-<<<<<<< HEAD
 // threefold repetition: knights out and back twice
 const r=new E.MiniChess();['g1f3','g8f6','f3g1','f6g8','g1f3','g8f6','f3g1','f6g8'].forEach(m=>r.move({from:m.slice(0,2),to:m.slice(2)}));
 console.log('threefold:',r.in_threefold(),'draw',r.in_draw());if(!r.in_threefold())ok=false;
 // undo restores the position
 const u=new E.MiniChess();u.move({from:'e2',to:'e4'});u.move({from:'e7',to:'e5'});u.undo(2);const back=u.turn()==='w'&&u.history()===0&&u.moves().length===20;
 console.log('undo:',back);if(!back)ok=false;
-=======
->>>>>>> origin/main
 console.log(ok?'ALL PERFT OK':'PERFT FAILURES');

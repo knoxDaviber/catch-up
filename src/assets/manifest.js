@@ -11,12 +11,6 @@ export const MUSIC = [
   { id: 'morning', name: 'Morning Light', src: 'assets/audio/music/morning.mp3' },
   { id: 'slowing_down', name: 'Slowing Down', src: 'assets/audio/music/slowing_down.mp3' },
   { id: 'evening', name: 'Calm Night', src: 'assets/audio/music/evening.mp3' },
-<<<<<<< HEAD
-=======
-  //{ id: 'placeholder-pad', name: 'Placeholder pad (synth)', src: null },
-  // { id: 'morning', name: 'Morning Light', src: 'assets/audio/music/morning.mp3' },
-  // { id: 'lake',    name: 'Lake Evening',  src: 'assets/audio/music/lake-evening.mp3' },
->>>>>>> origin/main
 ];
 
 export const SFX = {
@@ -42,13 +36,8 @@ export const AMBIENCE = {
 };
 
 export const FISH_ART = {
-<<<<<<< HEAD
   // one entry per fish id in src/game/fishing.js (KINDS); null = drawn placeholder in the fish's colours
   mosquitofish: null, gudgeon: null, rainbowfish: null, goldfish: null, spangled_perch: null, perch: null,
   bony_bream: null, silver_perch: null, mullet: null, tench: null, bass: null, golden_perch: null,
   trout: null, brown_trout: null, carp: null, eel: null, catfish: null, murray_cod: null,
-=======
-  minnow: null, perch: null, bluegill: null, trout: null, carp: null, catfish: null,
-  minnow: 'assets/fish/minnow.png',
->>>>>>> origin/main
 };

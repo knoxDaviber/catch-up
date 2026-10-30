@@ -141,29 +141,21 @@
     return minors <= 1;
   }
 
-<<<<<<< HEAD
   /* position identity for repetition: pieces, side to move, castling rights, en passant square */
   function posKey(st) { return st.b.map(function (p) { return p || '.'; }).join('') + st.t + (st.c.wK ? 'K' : '') + (st.c.wQ ? 'Q' : '') + (st.c.bK ? 'k' : '') + (st.c.bQ ? 'q' : '') + st.ep; }
 
   function MiniChess() {
     var st = initialState(), cache = null, self = this, hist = [], keys = [posKey(st)];
-=======
-  function MiniChess() {
-    var st = initialState(), cache = null, self = this;
->>>>>>> origin/main
     var FILES_ = 'abcdefgh';
     function nm(i) { return FILES_.charAt(i & 7) + ((i >> 3) + 1); }
     function ix(n) { return (parseInt(n.charAt(1), 10) - 1) * 8 + FILES_.indexOf(n.charAt(0)); }
     function legal() { return cache || (cache = legalMoves(st)); }
-<<<<<<< HEAD
     function repeated() { var k = keys[keys.length - 1], n = 0; for (var i = 0; i < keys.length; i++) if (keys[i] === k) n++; return n >= 3; }
     self.state = function () { return st; };
     self.keys = function () { return keys; };
     self.history = function () { return hist.length; };
     /** Take back the last n plies (default 1). Returns how many were undone. */
     self.undo = function (n) { var k = 0; n = n || 1; while (k < n && hist.length) { st = hist.pop(); keys.pop(); k++; } cache = null; return k; };
-=======
->>>>>>> origin/main
     self.get = function (n) { var p = st.b[ix(n)]; return p ? { color: p.charAt(0), type: p.charAt(1) } : null; };
     self.turn = function () { return st.t; };
     self.moves = function (o) {
@@ -177,28 +169,15 @@
       var f = ix(o.from), t = ix(o.to), pr = o.promotion || 'q';
       var m = legal().filter(function (x) { return x.f === f && x.t === t && (!x.promo || x.promo === pr); })[0];
       if (!m) return null;
-<<<<<<< HEAD
       hist.push(st); st = applyMove(st, m); cache = null; keys.push(posKey(st));
       return { from: o.from, to: o.to, flag: m.flag };
-=======
-      st = applyMove(st, m); cache = null;
-      return { from: o.from, to: o.to };
->>>>>>> origin/main
     };
     self.in_check = function () { return inCheckState(st); };
     self.in_checkmate = function () { return inCheckState(st) && legal().length === 0; };
     self.in_stalemate = function () { return !inCheckState(st) && legal().length === 0; };
-<<<<<<< HEAD
     self.in_threefold = repeated;
     self.in_draw = function () { return st.half >= 100 || insufficient(st.b) || self.in_stalemate() || repeated(); };
     self.game_over = function () { return legal().length === 0 || st.half >= 100 || insufficient(st.b) || repeated(); };
   }
 
 export { MiniChess, initialState, legalMoves, applyMove, inCheckState, attacked, posKey, pseudo, kingSq };
-=======
-    self.in_draw = function () { return st.half >= 100 || insufficient(st.b) || self.in_stalemate(); };
-    self.game_over = function () { return legal().length === 0 || st.half >= 100 || insufficient(st.b); };
-  }
-
-export { MiniChess, initialState, legalMoves, applyMove, inCheckState };
->>>>>>> origin/main

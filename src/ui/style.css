@@ -126,10 +126,6 @@ h1.dev {
 .names, .catch form { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .catch .names button, .catch .skip { padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(58,50,40,.3); background: #FFF8EA; color: #3A3228; cursor: pointer; }
 .catch input { padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(58,50,40,.3); background: #fff; color: #3A3228; width: 150px; }
-<<<<<<< HEAD
-=======
-.journal { display: flex; flex-wrap: wrap; gap: 6px 8px; font-size: 14px; color: var(--muted); }
->>>>>>> origin/main
 .chipj { padding: 2px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--fg); }
 button, input { font: inherit; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -178,15 +174,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 .pick .psub{position:absolute;left:50%;top:21%;transform:translateX(-50%);font-family:var(--font-display);font-size:clamp(14px,2.2vw,22px);color:#4A3F33;text-shadow:0 0 .5em rgba(251,244,230,.95);white-space:nowrap}
 .pk{position:absolute;transform:translate(-50%,-100%);font-size:clamp(18px,3.4vw,32px);padding:.1em 1em;border-radius:999px;transition:opacity .2s,background .2s}
 .pk::after{content:"\25BE";display:block;line-height:.6;font-size:.7em;opacity:.7}
-<<<<<<< HEAD
 .pk:not(:disabled):hover,.pk:focus-visible{background:#FFFBF1}
 .pick:has(.pk:not(:disabled):hover) .pk:not(:hover){opacity:.5}
 .pk:disabled{opacity:.55;cursor:default}
 .pk small{font-family:var(--font-body);font-size:.5em;opacity:.85;white-space:nowrap}
-=======
-.pk:hover,.pk:focus-visible{background:#FFFBF1}
-.pick:has(.pk:hover) .pk:not(:hover){opacity:.5}
->>>>>>> origin/main
 .pback{position:absolute;left:50%;bottom:5%;transform:translateX(-50%)}
 .qbtn{position:absolute;left:2.5%;top:3%;font-size:clamp(14px,2.1vw,20px);padding:.1em .8em;border-radius:999px;z-index:4}
 .qbtn:hover{background:#FFFBF1}
@@ -207,7 +198,6 @@ body{background:#171512}
 #intro{position:absolute;inset:0}
 .stage:not(.intro) #intro{display:none}
 
-<<<<<<< HEAD
 .catch{z-index:4}
 
 .chip.swap{left:auto;right:2.5%;bottom:4%;transform:none;font-size:clamp(13px,1.9vw,18px)}
@@ -224,28 +214,6 @@ body{background:#171512}
 .stage.night .nowplay{background:rgba(20,22,40,.7);color:#F3EAD6;box-shadow:0 1px 8px rgba(0,0,0,.35)}
 .stage.night .nowplay:hover,.stage.night .nowplay:focus-visible{background:rgba(20,22,40,.85)}
 @media (max-width:560px){.nowplay #npName{display:none}.nowplay{padding:0;width:34px;justify-content:center}}
-=======
-.journal{position:absolute;right:2.5%;top:3%;display:flex;flex-wrap:wrap;gap:4px 6px;justify-content:flex-end;max-width:44%;font-size:clamp(11px,1.5vw,14px)}
-.journal .chipj{padding:1px 9px;border-radius:999px;background:rgba(251,244,230,.86);border:1px solid rgba(58,50,40,.25);color:#3A3228}
-.catch{z-index:4}
-
-.chip.swap{left:auto;right:2.5%;bottom:4%;transform:none;font-size:clamp(13px,1.9vw,18px)}
-.ask{z-index:4}
-.ask h3{text-align:center}
-
-.chip.talk{left:2.5%;right:auto;bottom:4%;transform:none;font-size:clamp(13px,1.9vw,18px)}
-.chip.talk.urgent{animation:none;transform:none}
-.talk-panel{position:absolute;left:50%;bottom:15%;transform:translateX(-50%);width:min(680px,92%);padding:12px 16px;border-radius:14px;background:rgba(36,30,24,.86);color:#FBF4E6;z-index:4;display:flex;flex-direction:column;gap:10px}
-.talk-panel .tline{font-size:clamp(14px,2vw,19px);line-height:1.4}
-.talk-panel .tline b{font-family:var(--font-display);font-weight:400;color:#A9D0E2;font-size:1.15em;margin-right:.6em}
-.tchoices{display:flex;flex-wrap:wrap;gap:6px}
-.tchoices button{padding:5px 14px;border-radius:999px;border:1px solid rgba(251,244,230,.4);background:rgba(251,244,230,.12);color:#FBF4E6;cursor:pointer;font-size:clamp(13px,1.8vw,16px)}
-.tchoices button:hover,.tchoices button:focus-visible{background:rgba(251,244,230,.3)}
-
-.gear{font-family:var(--font-display);font-size:clamp(14px,2.1vw,20px);padding:.1em .8em;border-radius:999px;border:1px solid rgba(58,50,40,.35);background:rgba(251,244,230,.92);color:#3A3228;cursor:pointer;z-index:4}
-.stage.ingame .keys{display:none}
-.journal{top:11%}
->>>>>>> origin/main
 .settings{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,92%);max-height:92%;overflow:auto;padding:16px 20px;border-radius:16px;background:#FBF4E6;color:#3A3228;box-shadow:0 14px 40px rgba(0,0,0,.35);z-index:7;display:flex;flex-direction:column;gap:10px}
 .settings h2{font-family:var(--font-display);font-weight:400;font-size:clamp(24px,3.4vw,32px);margin:0}
 .settings h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#7a6e5e;margin:6px 0 4px;font-weight:600}
@@ -261,13 +229,8 @@ body{background:#171512}
 .stage.night .logo h1{color:#FBF4E6;text-shadow:0 0 .35em rgba(12,16,40,.9),0 0 .12em rgba(12,16,40,.8)}
 .stage.night .logo p,.stage.night .pick .ptitle,.stage.night .pick .psub{color:#F3EAD6;text-shadow:0 0 .5em rgba(12,16,40,.9),0 0 .2em rgba(12,16,40,.8)}
 
-<<<<<<< HEAD
 .topright{position:absolute;right:2.5%;top:3%;display:flex;align-items:center;gap:6px;z-index:4}
 .stage.ingallery .tag,.stage.ingallery .chip,.stage.ingallery .caption,.stage.ingallery .topright{display:none}
-=======
-.topright{position:absolute;right:2.5%;top:3%;display:flex;gap:6px;z-index:4}
-.stage.ingallery .tag,.stage.ingallery .chip,.stage.ingallery .caption,.stage.ingallery .journal,.stage.ingallery .talk-panel,.stage.ingallery .topright{display:none}
->>>>>>> origin/main
 .galnote{position:absolute;left:50%;bottom:7%;transform:translateX(-50%);padding:.4em 1em;border-radius:14px;background:rgba(36,30,24,.78);color:#FBF4E6;font-size:clamp(13px,1.9vw,17px);text-align:center;max-width:80%}
 #fishInfo{z-index:6}
 #fishInfo .skip{padding:5px 12px;border-radius:999px;border:1px solid rgba(58,50,40,.3);background:#FFF8EA;color:#3A3228;cursor:pointer}
@@ -284,10 +247,6 @@ body{background:#171512}
 .fprog>div{height:100%;width:30%;background:#8fd18c;transition:width .1s linear}
 .dial{position:absolute;left:1.4%;top:20%;height:58%;width:30px;z-index:3;opacity:.4;transition:opacity .25s;touch-action:none;cursor:ns-resize;outline:none}
 .dial:hover,.dial.on,.dial:focus-visible{opacity:1}
-<<<<<<< HEAD
-=======
-.dtrack{position:absolute;left:11px;top:0;bottom:0;width:8px;border-radius:999px;border:1px solid rgba(251,244,230,.5);background:linear-gradient(#0e1534,#f2b490 22%,#9dbfd8 32%,#9fc9e8 50%,#f4a97f 76%,#3a4a78 86%,#0e1534)}
->>>>>>> origin/main
 .dknob{position:absolute;left:2px;width:26px;height:26px;margin-top:-13px;border-radius:50%;background:#FFD66B;box-shadow:0 0 10px rgba(255,214,107,.9),0 0 0 2px rgba(255,255,255,.85)}
 .dknob.moon{background:radial-gradient(circle at 70% 35%,#0e1534 0 38%,#EFEFE0 40%);box-shadow:0 0 10px rgba(220,230,255,.8),0 0 0 2px rgba(255,255,255,.85)}
 .dlabel{position:absolute;left:36px;margin-top:-12px;padding:2px 9px;border-radius:999px;background:rgba(36,30,24,.78);color:#FBF4E6;font-size:13px;white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none}
@@ -295,7 +254,6 @@ body{background:#171512}
 .toast{position:absolute;left:50%;bottom:10%;transform:translateX(-50%);padding:.3em 1em;border-radius:999px;background:rgba(36,30,24,.82);color:#FBF4E6;font-size:clamp(13px,1.8vw,16px);z-index:6;pointer-events:none}
 .stage.ingallery .dial,.stage.ingallery .fight{display:none}
 .fight[hidden],.dial[hidden],.toast[hidden]{display:none}
-<<<<<<< HEAD
 
 /* ---------- phase 1: messages, nibble "!", time ring, board chips, things you can click ---------- */
 .stage:not(.ingame) .msgs,.stage:not(.ingame) .nib,.stage:not(.ingame) .hotlabel{display:none}
@@ -361,5 +319,3 @@ body{background:#171512}
 .tackle button:hover,.settings .tbtn:hover{background:#fff}
 .tackle button[aria-pressed="true"]{background:#D9EEF7;border-color:rgba(79,127,150,.6)}
 .settings .sask{flex-wrap:wrap;gap:6px 8px}
-=======
->>>>>>> origin/main
