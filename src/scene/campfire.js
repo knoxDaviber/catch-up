@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PAL } from './palette.js';
+import { FIRE } from './world.js';
 
 /** The campfire: layered flames, a soft glow, rising sparks and a flickering warm light that reaches the friends. */
-export function buildCampfire(scene, x = 0, z = 4.2) {
+export function buildCampfire(scene, x = FIRE[0], z = FIRE[1]) {
   const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
   const flameMat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, fog: false });
   const flames = [[.2, .62, 0xf08a3c, .95], [.14, .5, 0xffc766, .9], [.08, .34, 0xfff0b8, .9]].map(([r, h, c, o]) => {

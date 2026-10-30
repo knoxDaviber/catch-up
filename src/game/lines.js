@@ -44,6 +44,7 @@ export const LINES = {
     adaptKeep: ['Fair enough. As we were.', 'Suit yourself.'],
     nibble: ['Something is looking at your float.', 'Your float. Just so you know.'],
     radioTip: ['There is a radio by your chair, if you want music. It mostly works.'],
+    baitToss: ['Bribery. Fine.', 'Let us see who takes the bait.'],
     castRemind: ['Your line is still out of the water, by the way.', 'You know you have to cast, right? They will not climb up.'],
   },
   liam: {
@@ -88,6 +89,7 @@ export const LINES = {
     adaptKeep: ['Fair enough.', 'All good. As you were.'],
     nibble: ['Oi, something is having a sniff at your float.', 'Your float is getting some attention.'],
     radioTip: ['Radio is by your chair if you want some tunes. Heaps better than my singing.'],
+    baitToss: ['Berley time! Dinner is served, fellas.', 'Free lunch, ladies and gentlemen. Do not all rush at once.'],
     castRemind: ['Your line is still out, mate. Fish will not jump in on their own.'],
   },
 };

@@ -14,7 +14,7 @@
 <main class="page">
   <div class="stage intro" id="stage">
     <canvas id="view" aria-label="Lakeside camp. Two friends sit in camp chairs by a lake with a chess board on a stump between them."></canvas>
-    <div class="paper"></div><div class="vignette"></div><div class="veil"></div>
+    <div class="paper"></div><div class="vignette"></div><div class="veil"></div><div class="fx fx-a"></div><div class="fx fx-b"></div>
     <span class="tag" id="viewTag"></span>
     <div class="caption" id="caption" aria-live="polite"><b id="capWho"></b><span id="capText"></span></div>
     <button class="chip" id="panChip" type="button"></button>
@@ -43,6 +43,7 @@
     <button class="nib" id="nib" type="button" hidden aria-label="Something is nibbling your line. Look at the water.">!</button>
     <div class="bchips" id="bchips" hidden><button class="chip mini" id="hintBtn" type="button">Any ideas?</button><button class="chip mini" id="undoBtn" type="button">Wait, take that back</button></div>
     <div class="hotlabel" id="hotLabel" hidden></div>
+    <div class="wind" id="wind" hidden><i id="windFill"></i></div>
     <div class="tackle" id="tackle" role="dialog" aria-label="Tackle box" hidden><b>Tackle box</b><button type="button" id="tBait">Bait: easy does it</button><button type="button" id="tLure">Lure: they fight back</button></div>
     <button class="chip swap" id="swapBtn" type="button" hidden></button>
     <div class="topright" id="topRight" hidden><button class="nowplay" id="nowPlay" type="button" title="Next track"><span class="npnote" aria-hidden="true">&#9834;</span><span id="npName"></span></button><button class="gear" id="gearBtn" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
@@ -66,6 +67,7 @@
       </section>
       <section><h3>Sound</h3>
         <label class="srow"><input type="checkbox" id="sMute"> Mute everything</label>
+        <label class="srow"><input type="checkbox" id="sRadio"> Radio on</label>
         <label class="srow"><span>Music</span><input type="range" id="sMusic" min="0" max="1" step="0.05"><output id="sMusicOut"></output></label>
         <label class="srow"><span>Effects</span><input type="range" id="sSfx" min="0" max="1" step="0.05"><output id="sSfxOut"></output></label>
         <label class="srow"><span>Ambience</span><input type="range" id="sAmb" min="0" max="1" step="0.05"><output id="sAmbOut"></output></label>
@@ -79,6 +81,9 @@
         <label class="srow"><input type="checkbox" id="sChallenge"> Reel-in challenge: follow the fish along a bar</label>
         <label class="srow"><input type="checkbox" id="sAdapt"> Let them match your level</label>
         <label class="srow"><span>Friend's chess strength</span><input type="range" id="sChess" min="0.05" max="1" step="0.05"><output id="sChessOut"></output></label>
+      </section>
+      <section><h3>Screen</h3>
+        <label class="srow"><span>Filter</span><select id="sFilter"><option value="none">None</option><option value="dreamy">Dreamy drift</option><option value="film">Old film</option><option value="crt">CRT</option><option value="paper">Watercolour paper</option></select></label>
       </section>
       <section><h3>Camera</h3>
         <label class="srow"><input type="checkbox" id="sSway"> Gentle sway</label>

@@ -1,7 +1,7 @@
 /* Player settings, remembered in the browser. */
 const KEY = 'catchup.settings.v1';
 import { MUSIC } from '../assets/manifest.js';
-export const DEFAULTS = { cycle: true, dayMin: 12, fire: 'auto', sway: true, tilt: true, challenge: false, musicVol: .5, sfxVol: .7, ambVol: .5, muted: false, track: MUSIC[0].id, playMode: 'all',
+export const DEFAULTS = { cycle: true, dayMin: 12, fire: 'auto', sway: true, tilt: true, challenge: false, musicVol: .5, sfxVol: .7, ambVol: .5, muted: false, radio: true, filter: 'none', track: MUSIC[0].id, playMode: 'all',
   chessLevel: .35, chessAdaptive: null, tips: {}, ngplus: false };   // chessAdaptive: null = not asked yet; tips: one-off friend hints already given; ngplus: the story has been finished once (New game+)
 export function loadSettings() {
   const s = { ...DEFAULTS };

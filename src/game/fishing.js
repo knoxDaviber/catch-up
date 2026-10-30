@@ -44,19 +44,25 @@ export function createFishing(hooks) {
   const F = {
     challenge: false, fighting: false, night: 0,
     fish: [], ripples: [], journal: [], bite: false, catchOpen: false, caught: null, splashT: -1e9, auto: true, stowed: false,
-    rod: { phase: 'wait', nextAt: 0, fish: null, nibs: 0, nibT: 0, dipUntil: 0, winEnd: 0, t0: 0, dur: 2000, nextRip: 0, until: 0, quick: false, cur: { x: 0, y: 0, z: 0 } },
-    fr: { nextAt: 0, dipUntil: 0 },
+    rod: { land: null, phase: 'wait', nextAt: 0, fish: null, nibs: 0, nibT: 0, dipUntil: 0, winEnd: 0, t0: 0, dur: 2000, nextRip: 0, until: 0, quick: false, cur: { x: 0, y: 0, z: 0 } },
+    fr: { nextAt: 0, dipUntil: 0 }, bait: { until: 0, cool: 0 }, power: 0,
   };
   const R = F.rod;
   try { F.journal = JSON.parse(localStorage.getItem(JKEY) || '[]'); } catch (e) { F.journal = []; }
   const saveJournal = () => { try { localStorage.setItem(JKEY, JSON.stringify(F.journal)); } catch (e) { /* storage is optional */ } };
-  const myFloat = () => { const b = bobberPos(hooks.mySeatX()); return { x: b[0], z: b[2] }; };
+  const base = px => R.land || bobberPos(px);
+  const myFloat = () => { const b = base(hooks.mySeatX()); return { x: b[0], z: b[2] }; };
+  /** Bait toss (berley): for a while the float draws fish in faster, bites more often and favours bigger fish. Only helps while the line is in the water. */
+  const baited = now => !F.stowed && now < F.bait.until;
+  F.baited = () => baited(performance.now());
 
   // night fish bite more after dark, day fish less (F.night is 0..1, set by the game)
   const weight = k => k.w * (k.when === 'night' ? .4 + F.night * 2.2 : k.when === 'day' ? 1.4 - F.night : 1);
-  function weighted() {
-    let t = 0; KINDS.forEach(k => { t += weight(k); });
-    let r = rnd() * t; for (const k of KINDS) { r -= weight(k); if (r <= 0) return k; }
+  // sz / df: a nudge towards bigger / tougher fish (bait, a long Lure cast)
+  function weighted(sz = 0, df = 0) {
+    const wt = k => weight(k) * (1 + sz * k.len * 2) * (1 + df * k.diff * 2.5);
+    let t = 0; KINDS.forEach(k => { t += wt(k); });
+    let r = rnd() * t; for (const k of KINDS) { r -= wt(k); if (r <= 0) return k; }
     return KINDS[0];
   }
   function spawnFish(near) {
@@ -71,10 +77,10 @@ export function createFishing(hooks) {
     f.mode = 'flee'; f.fleeEnd = now + 2200;
     const ang = Math.atan2(f.z - z, f.x - x); f.tx = f.x + Math.cos(ang) * 6; f.tz = f.z + Math.sin(ang) * 6 - 1;
   }
-  const wait = (now, a, b) => { R.phase = 'wait'; R.nextAt = now + a + rnd() * (b - a); };
+  const wait = (now, a, b) => { R.phase = 'wait'; R.nextAt = now + (a + rnd() * (b - a)) * (baited(now) ? .35 : 1); };
   F.reset = () => {
     F.fish.forEach(f => { if (f.mode !== 'wander') { f.mode = 'wander'; f.retarget = 0; } });
-    R.fish = null; wait(performance.now(), 15000, 25000); F.bite = false; F.stowed = false; F.fighting = false; F.catchOpen = false; F.caught = null;
+    R.fish = null; R.land = null; F.power = 0; F.bait.until = F.bait.cool = 0; wait(performance.now(), 15000, 25000); F.bite = false; F.stowed = false; F.fighting = false; F.catchOpen = false; F.caught = null;
   };
   /** True from the first nibble until the fish bites, leaves, or is struck: this is when the "!" shows. */
   Object.defineProperty(F, 'alert', { get: () => R.phase === 'tease' || R.phase === 'bite' });
@@ -83,10 +89,27 @@ export function createFishing(hooks) {
    *  Picked up: the line stays out, ready to cast. Not while a fish is on the line. */
   F.stow = on => {
     if (on && ['reel', 'fight', 'catch'].includes(R.phase)) return false;
-    if (on) { if (R.fish && R.fish.mode !== 'wander') { const fl = myFloat(); fleeFrom(R.fish, fl.x, fl.z, performance.now()); } F.bite = false; R.phase = 'out'; R.fish = null; }
+    if (on) { if (R.fish && R.fish.mode !== 'wander') { const fl = myFloat(); fleeFrom(R.fish, fl.x, fl.z, performance.now()); } F.bite = false; R.phase = 'out'; R.fish = null; R.land = null; }
     F.stowed = !!on; hooks.onChange(); return true;
   };
-  F.cast = () => { if (R.phase !== 'out') return; R.phase = 'cast'; R.t0 = performance.now(); R.dur = 900; sfx('reel'); hooks.onChange(); };
+  /** Bait toss. Returns false while it is still cooling down. */
+  F.toss = (now = performance.now()) => {
+    if (now < F.bait.cool) return false;
+    F.bait.cool = now + 25000; F.bait.until = now + 60000 + rnd() * 30000;
+    if (!F.stowed) {
+      const fl = myFloat();
+      if (R.phase === 'wait') R.nextAt = Math.min(R.nextAt, now + 4000 + rnd() * 5000);
+      F.fish.forEach(f => { if (f.mode === 'wander' && Math.hypot(f.x - fl.x, f.z - fl.z) < 7) { f.tx = fl.x + (rnd() - .5) * 2; f.tz = clamp(fl.z + (rnd() - .5) * 2, LAKE.zFar + .5, LAKE.zNear - .6); f.retarget = now + 5000 + rnd() * 3000; } });
+    }
+    return true;
+  };
+  F.canCast = () => R.phase === 'out' && !F.stowed && !F.catchOpen;
+  /** Cast. power (0..1, Lure mode only) sets how far out the float lands; with none the float lands at its usual spot. */
+  F.cast = power => {
+    if (R.phase !== 'out') return; const p = power == null ? null : clamp(power, 0, 1);
+    R.land = p == null ? null : [hooks.mySeatX() * (1.15 + .35 * p), 0, lerp(-7.6, -14, p)]; F.power = p || 0;
+    R.phase = 'cast'; R.t0 = performance.now(); R.dur = 900 + 450 * (p || 0); sfx('reel'); hooks.onChange();
+  };
   F.stepFish = (dt, now) => {
     const fl = myFloat();
     for (const f of F.fish) {
@@ -109,7 +132,7 @@ export function createFishing(hooks) {
     const fl = myFloat(), c = F.fish.filter(f => f.mode === 'wander').sort((a, b) => Math.hypot(a.x - fl.x, a.z - fl.z) - Math.hypot(b.x - fl.x, b.z - fl.z));
     if (!c.length) return;
     const f = c[Math.floor(rnd() * Math.min(3, c.length))];
-    if (rnd() < .4) f.kind = weighted();   // the lake turns over: whoever comes to the float suits the time of day
+    if (rnd() < .4) f.kind = weighted(baited(now) ? .8 : 0, F.challenge ? F.power * .5 : 0);   // the lake turns over: whoever comes to the float suits the time of day
     f.mode = 'approach'; f.ph = rnd() * 6.28;
     R.phase = 'approach'; R.fish = f; R.quick = !!quick; R.until = now + 14000;
   };
@@ -130,7 +153,7 @@ export function createFishing(hooks) {
     } else if (R.phase === 'tease') {
       if (now >= R.nibT) {
         if (R.nibs > 0) { R.nibs--; R.dipUntil = now + 380; R.nibT = now + 1100 + rnd() * 900; F.ripple(fl.x, fl.z, .08, .4, 700, now); sfx('nibble'); }
-        else if (R.quick || rnd() < .65) { R.phase = 'bite'; f.mode = 'bite'; R.winEnd = now + 4500; R.nextRip = now; F.bite = true; sfx('bite'); hooks.onBite && hooks.onBite(); hooks.onChange(); }
+        else if (R.quick || rnd() < (baited(now) ? .85 : .65)) { R.phase = 'bite'; f.mode = 'bite'; R.winEnd = now + 4500; R.nextRip = now; F.bite = true; sfx('bite'); hooks.onBite && hooks.onBite(); hooks.onChange(); }
         else { fleeFrom(f, fl.x, fl.z, now); wait(now, 20000, 40000); hooks.onLeave && hooks.onLeave(); hooks.onChange(); }
       }
     } else if (R.phase === 'bite') {
@@ -141,7 +164,7 @@ export function createFishing(hooks) {
     } else if (R.phase === 'reel') {
       if ((now - R.t0) / R.dur >= 1) { R.phase = 'catch'; showCatch(f, now); }
     }
-    const px = hooks.mySeatX(), bp = bobberPos(px), cur = { x: bp[0], y: bp[1], z: bp[2] };
+    const px = hooks.mySeatX(), bp = base(px), cur = { x: bp[0], y: bp[1], z: bp[2] };
     if (R.phase === 'reel' || R.phase === 'catch' || R.phase === 'out') {
       const e = R.phase === 'reel' ? smooth(clamp((now - R.t0) / R.dur, 0, 1)) : 1;
       cur.x = lerp(bp[0], px * .9, e); cur.z = lerp(bp[2], -3.3, e); cur.y = bp[1] + .55 * e * e;
@@ -203,7 +226,7 @@ export function createFishing(hooks) {
     hooks.say(hooks.friend(), hooks.line(key, { n: nick }), 4200);
     const idx = F.fish.indexOf(R.fish); if (idx >= 0) F.fish.splice(idx, 1);
     spawnFish(false);
-    F.catchOpen = false; F.caught = null; R.phase = 'out'; R.fish = null;   // the line stays in until you cast again
+    F.catchOpen = false; F.caught = null; R.phase = 'out'; R.fish = null; R.land = null;   // the line stays in until you cast again
     hooks.onChange();
   };
   return F;

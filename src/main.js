@@ -4,7 +4,8 @@ import { buildBoard } from './scene/board.js';
 import { CameraRig } from './scene/rig.js';
 import { MiniChess } from './chess/engine.js';
 import { chooseMove, bestMove, material } from './chess/ai.js';
-import { createFishing, bobberPos, KINDS } from './game/fishing.js';
+import { createFishing, bobberPos, rodTip, KINDS } from './game/fishing.js';
+import { buildBait } from './scene/bait.js';
 import { buildLakeLife } from './scene/lake_life.js';
 import { line } from './game/lines.js';
 import { loadStory } from './game/story.js';
@@ -37,9 +38,10 @@ addEventListener('pointerdown', unlockAudio); addEventListener('keydown', unlock
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('button') && !e.target.closest('.pk')) audio.sfx('click'); });
 const dayNight = createDayNight(scene, world, camera);
 const campfire = buildCampfire(scene);
+const FILTERS = ['none', 'dreamy', 'film', 'crt', 'paper'];
 function applySettings() {
   dayNight.cycle = settings.cycle; dayNight.dayMin = settings.dayMin;
-  rig.sway = settings.sway && !reduce; rig.tilt = settings.tilt;
+  rig.sway = settings.sway && !reduce; rig.tilt = settings.tilt; stage.dataset.filter = FILTERS.includes(settings.filter) ? settings.filter : 'none';
 }
 applySettings();
 
@@ -71,10 +73,18 @@ let lastSpoke = 0;
 const fk = () => (player === 'liam' ? 'xiao' : 'liam');            // the friend's key
 const bark = (key, vars, ms) => say(friend(), line(fk(), key, vars), ms);
 const PIECE = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+const capQ = []; let capCur = null;   // captions queue up: a new line waits until the one showing has had its time (at most 2.5 s when others are waiting)
+function capNext() {
+  capCur = capQ.shift(); if (!capCur) { $('caption').classList.remove('show'); return; }
+  $('capWho').textContent = capCur.who; $('capText').textContent = capCur.text; $('caption').classList.add('show'); capCur.at = performance.now();
+  clearTimeout(capTimer); capTimer = setTimeout(capNext, capQ.length ? Math.min(capCur.ms, 2500) : capCur.ms);
+}
+function clearCaptions() { capQ.length = 0; capCur = null; clearTimeout(capTimer); $('caption').classList.remove('show'); }
 function say(who, text, ms = 4200) {
   lastSpoke = performance.now(); if (who === friend()) audio.sfx('blip');
-  $('capWho').textContent = who; $('capText').textContent = text; $('caption').classList.add('show');
-  clearTimeout(capTimer); capTimer = setTimeout(() => $('caption').classList.remove('show'), ms);
+  capQ.push({ who, text, ms }); while (capQ.length > 3) capQ.shift();   // stale lines that never got shown are dropped, never the one on screen
+  if (!capCur) { capNext(); return; }
+  clearTimeout(capTimer); capTimer = setTimeout(capNext, Math.max(0, capCur.at + Math.min(capCur.ms, 2500) - performance.now()));
 }
 function draw() { board.setPosition(game, st); }
 let turnSince = 0, thinkBarked = false;
@@ -186,27 +196,34 @@ function newGame() {
 
 /* ---------- messages: the friend texts you, right above the Talk button ---------- */
 let asking = false;   // a question is waiting for an answer; it never blocks play, and silence is an answer too
+const msgQ = [], msgAll = new Set();   // bubbles waiting for room: one is never pushed out by a newer one, only plain chat-log lines scroll away
+const roomFor = () => { const live = [...$('msgs').children].filter(c => !c.classList.contains('out')); if (live.length < 4) return true; const o = live.find(c => !c.querySelector('.mreplies') && c._close); if (!o) return false; o._close(); return true; };   // a question (timed or untimed) is never evicted
+const pumpMsgs = () => { while (msgQ.length && roomFor()) msgQ.shift()(); };
 function msg(who, text, replies, { ms = 9000, onSilence, mine = false, beat = false } = {}) {   // ms 0: no reply timer, it waits to be answered
   const box = $('msgs'), el = document.createElement('div'); el.className = 'msg' + (mine ? ' mine' : '') + (beat ? ' beat' : '') + (who || text ? '' : ' bare') + (ms ? '' : ' hold');
   const w = document.createElement('span'); w.className = 'mwho'; w.textContent = who; el.append(w, text);
-  let done = false, t = 0; const close = () => { if (done) return; done = true; clearTimeout(t); el.classList.add('out'); setTimeout(() => el.remove(), 400); };
+  let done = false, t = 0; const kill = () => { done = true; clearTimeout(t); }; msgAll.add(kill); const show = () => {
+    if (who === friend()) audio.sfx('blip');
+    box.appendChild(el); if (ms) t = setTimeout(() => { if (!done) { close(); onSilence && onSilence(); } }, ms);   // the timer starts when it is on screen
+  };
+  const close = () => { if (done) return; msgAll.delete(kill); done = true; clearTimeout(t); const i = msgQ.indexOf(show); if (i >= 0) msgQ.splice(i, 1); el.classList.add('out'); setTimeout(() => { el.remove(); pumpMsgs(); }, 400); };
+  el._close = close;
   if (replies && replies.length) {
     const r = document.createElement('div'); r.className = 'mreplies';
     replies.forEach(([label, fn]) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', () => { if (done) return; close(); fn && fn(); }); r.appendChild(b); });
     el.append(r);
     if (ms) { const tm = document.createElement('div'), bar = document.createElement('i'); tm.className = 'mtimer'; bar.style.animationDuration = ms + 'ms'; tm.appendChild(bar); el.append(tm); }
   }
-  if (who === friend()) audio.sfx('blip');
-  box.appendChild(el); while (box.children.length > 4) { const o = [...box.children].find(c => !c.classList.contains('hold')); if (!o) break; o.remove(); }   // an untimed question is never pushed out
-  if (ms) t = setTimeout(() => { if (!done) { close(); onSilence && onSilence(); } }, ms);
+  if (msgQ.length || !roomFor()) msgQ.push(show); else show();
   return close;
 }
+let askSeq = 0;
 function ask(text, options, opts = {}) {   // options: [[label, fn]]; letting it time out runs opts.onSilence
-  asking = true; updateUI();
-  const end = fn => () => { asking = false; fn && fn(); updateUI(); };
+  asking = true; updateUI(); const id = ++askSeq;
+  const end = fn => () => { if (id === askSeq) asking = false; fn && fn(); updateUI(); };
   return msg(friend(), text, options.map(([l, fn]) => [l, end(fn)]), { ms: opts.ms || 14000, onSilence: end(opts.onSilence) });
 }
-function clearMsgs() { $('msgs').textContent = ''; asking = false; }
+function clearMsgs() { clearCaptions(); msgAll.forEach(k => k()); msgAll.clear(); msgQ.length = 0; $('msgs').textContent = ''; asking = false; }
 function swapSides(lines) {
   myColor = friendColor(); clearTimeout(friendTimer); clearTimeout(askTimer);
   newGame(); say(friend(), lines || line(fk(), 'swapDone'), 3500); startFriendIfFirst(1800);
@@ -292,7 +309,7 @@ function playInk(path, done, { auto = false } = {}) {
   };
   step();
 }
-function openTopics() { if (canTalk()) { $('caption').classList.remove('show'); playInk('talk'); } }
+function openTopics() { if (canTalk()) { clearCaptions(); playInk('talk'); } }
 // the friend raises a new topic now and then (or a small moment); you can always just fish
 // once everything's been talked through, the story's ending plays (once a trip); after "stay", idle moments are just small talk
 function idleMoment() {
@@ -374,6 +391,25 @@ const fishing = createFishing({
 fishing.challenge = settings.challenge;
 fishing.init();
 const lakeUpdate = buildLakeLife(scene, fishing, () => (mySeatX() < 0 ? -1 : 1), () => dayNight.night);
+const bait = buildBait(scene, (x, z, i) => { if (i % 5 === 0) { fishing.ripple(x, z, .05, .35, 800, performance.now()); audio.sfx(i === 0 ? 'splash' : 'nibble'); } });
+world.hot.push(...bait.hot);
+/** Toss a handful of bait towards your float. It draws fish in for a while (only while the line is in the water), then needs a rest. */
+function tossBait() {
+  const now = performance.now(); if (!fishing.stowed && !fishing.toss(now)) { toast('Let them find it first.'); return; }
+  const s = -side(), b = fishing.rod.land || bobberPos(mySeatX());
+  bait.toss([s * 1.95, .3, -2.5], [b[0], b[2]], now); audio.sfx('pop'); if (fishing.stowed) toast('Better get a line in first.');
+  if (!fishing.stowed && Math.random() < .6) setTimeout(() => bark('baitToss', {}, 3200), 900);
+}
+/* Lure mode casting: press and hold to wind up, release to cast (a drag cancels it and turns your head instead) */
+let wind = null;
+const windPower = now => clamp((now - wind.t0) / 1500, 0, 1);
+function startWind(src) { if (wind || !settings.challenge || !fishing.canCast() || scene_ !== 'game' || view !== 'fish' || rig.tween || overlayOpen()) return; wind = { t0: performance.now(), src }; $('wind').hidden = false; placeWind(); }
+function endWind(doCast) { if (!wind) return; const p = Math.max(.06, windPower(performance.now())); wind = null; $('wind').hidden = true; if (doCast && fishing.canCast()) fishing.cast(p); }
+function placeWind() {
+  if (!wind) return; if (!fishing.canCast() || view !== 'fish' || rig.tween || overlayOpen()) { endWind(false); return; }
+  const t = rodTip(mySeatX()); hotTmp.set(t[0], t[1] + .35, t[2]).project(camera); const w = $('wind');
+  w.style.left = clamp((hotTmp.x * .5 + .5) * 100, 8, 92) + '%'; w.style.top = clamp((-hotTmp.y * .5 + .5) * 100, 10, 90) + '%'; $('windFill').style.width = (windPower(performance.now()) * 100) + '%';
+}
 let pendingStrike = false;
 function showCatch(c) {
   $('catchFish').innerHTML = fishHtml(c.kind);
@@ -403,14 +439,14 @@ function openTackle() {
   $('tBait').setAttribute('aria-pressed', String(!settings.challenge)); $('tLure').setAttribute('aria-pressed', String(!!settings.challenge));
   $('tackle').hidden = false; placeTackle(); (settings.challenge ? $('tLure') : $('tBait')).focus(); updateUI();
 }
-function closeTackle(on) { if ($('tackle').hidden) return; $('tackle').hidden = true; if (typeof on === 'boolean') setChallenge(on); setStowed(false); }   // no choice: keep the current one
+function closeTackle(on) { if ($('tackle').hidden) return; $('tackle').hidden = true; if (typeof on === 'boolean') setChallenge(on); setStowed(false); updateUI(); }   // no choice: keep the current one
 function placeTackle() {
   if ($('tackle').hidden || !tackleAt) return; hotTmp.set(...tackleAt).project(camera); const t = $('tackle');
   t.style.left = clamp((hotTmp.x * .5 + .5) * 100, 14, 86) + '%'; t.style.top = clamp((-hotTmp.y * .5 + .5) * 100, t.offsetHeight / (stage.clientHeight || 1) * 100 + 4, 92) + '%';   // never above the top edge
 }
 $('tBait').addEventListener('click', () => closeTackle(false));
 $('tLure').addEventListener('click', () => closeTackle(true));
-document.addEventListener('pointerdown', e => { if (!$('tackle').hidden && !e.target.closest('#tackle')) closeTackle(); });
+document.addEventListener('pointerdown', e => { if (!$('tackle').hidden && !e.target.closest('#tackle, #quitBtn')) closeTackle(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('tackle').hidden) closeTackle(); });
 
 /* ---------- people: who is you ---------- */
@@ -426,7 +462,7 @@ function setScene(s) {
   scene_ = s; rig.mode = s;
   stage.classList.toggle('intro', s === 'title' || s === 'select');
   stage.classList.toggle('ingame', s === 'game' || s === 'sit' || s === 'leaving');
-  $('intro').hidden = s !== 'title'; $('pick').hidden = s !== 'select'; $('quitBtn').hidden = s !== 'game'; $('topRight').hidden = s !== 'game'; $('dial').hidden = s !== 'game'; $('galBack').hidden = s !== 'gallery';
+  $('intro').hidden = s !== 'title'; $('pick').hidden = s !== 'select'; $('topRight').hidden = s !== 'game'; $('dial').hidden = s !== 'game'; $('galBack').hidden = s !== 'gallery';
   stage.classList.toggle('ingallery', s === 'gallery');
   updateUI();
 }
@@ -474,7 +510,7 @@ function goView(v) {
 function updateUI() {
   // the only status line: whose move it is on the board, or a nudge to cast
   $('viewTag').textContent = scene_ !== 'game' || rig.tween ? '' : view === 'board' && game ? (game.game_over() ? 'Game over' : game.turn() === myColor ? 'Your move' : `${friend()} is thinking`)
-    : view === 'fish' && fishing.lineOut && !fishing.catchOpen ? 'Click the water to cast' : '';
+    : view === 'fish' && fishing.lineOut && !fishing.catchOpen ? (settings.challenge ? 'Hold, then let go to cast' : 'Click the water to cast') : '';
   const bite = fishing.bite;
   $('panChip').textContent = view === 'fish' ? (bite ? 'Reel in!' : 'Look at the board ▾') : 'Back to the water ▴';
   $('panChip').classList.toggle('urgent', bite && view === 'fish');
@@ -487,6 +523,8 @@ function updateUI() {
   const sb = $('swapBtn'); sb.hidden = !(scene_ === 'game' && view === 'board' && !rig.tween && !asking && !focus && !fishing.fighting && game && (game.game_over() || canAskSwap()));
   $('bchips').style.bottom = sb.hidden ? '' : '12%';
   sb.textContent = game && game.game_over() ? 'Play again\u2026' : 'Ask to swap sides';
+  const back = !$('settings').hidden || (scene_ === 'game' && (!$('tackle').hidden || !$('catch').hidden)), qb = $('quitBtn');   // while a panel is open the top-left button closes it instead of quitting
+  qb.hidden = !(back || scene_ === 'game'); qb.classList.toggle('back', back); qb.innerHTML = back ? '&lsaquo; Back' : '&lsaquo; Quit';
   stage.classList.toggle('playable', !!playable());
   stage.classList.toggle('fishview', scene_ === 'game' && view === 'fish' && !rig.tween);
 }
@@ -537,7 +575,7 @@ canvas.addEventListener('pointermove', e => {
 const endDrag = () => { if (!drag) return; if (!drag.moved) showFishInfo(drag.f); gallery.release(drag.f); drag = null; canvas.style.cursor = ''; };
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
 $('mGallery').addEventListener('click', openGallery);
-$('galBack').addEventListener('click', () => { if (gallery.view === 'tank') { gallery.setView('room'); hideFishInfo(); $('galNote').hidden = false; $('galNote').textContent = 'Click the tank for a closer look.'; } else closeGallery(); });
+$('galBack').addEventListener('click', () => { if (!$('fishInfo').hidden) hideFishInfo(); else if (gallery.view === 'tank') { gallery.setView('room'); hideFishInfo(); $('galNote').hidden = false; $('galNote').textContent = 'Click the tank for a closer look.'; } else closeGallery(); });
 $('fiClose').addEventListener('click', hideFishInfo);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && scene_ === 'gallery') { if (!$('fishInfo').hidden) hideFishInfo(); else if (gallery.view === 'tank') { gallery.setView('room'); $('galNote').hidden = false; $('galNote').textContent = 'Click the tank for a closer look.'; } else closeGallery(); } });
 
@@ -601,14 +639,16 @@ $('dial').addEventListener('wheel', e => { e.preventDefault(); dayNight.set(dayN
 $('dial').addEventListener('keydown', e => { if (e.key === 'ArrowDown' || e.key === 'ArrowRight') dayNight.set(dayNight.hour + .25); if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') dayNight.set(dayNight.hour - .25); });
 let toastT = 0;
 function toast(text) { const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600); }
-function nextTrack() {
-  const list = audio.tracks(); if (!list.length) return; const i = list.findIndex(t => t.id === settings.track), next = list[(i + 1) % list.length];
+function nextTrack() {   // cycles the tracks, then off; the click after off starts again at the first track
+  const list = audio.tracks(); if (!list.length) return; const i = list.findIndex(t => t.id === settings.track);
+  if (settings.radio !== false && i === list.length - 1) { audio.setRadio(false); saveSettings(settings); toast('\u266A Radio off'); updateNowPlaying(); return; }
+  const next = settings.radio === false ? list[0] : list[(i + 1) % list.length];
   audio.setTrack(next.id); saveSettings(settings); toast('\u266A ' + next.name + (list.length < 2 ? ' (add more tracks in assets)' : '')); updateNowPlaying();
 }
 const trackName = () => (audio.tracks().find(t => t.id === settings.track) || {}).name || 'off';
 let npText = null, npT = 0;   // the now-playing label beside the gear; fades out and back in when the name changes
 function updateNowPlaying() {
-  const t = settings.muted || !settings.musicVol || audio.trackError ? 'Radio off' : trackName(), el = $('nowPlay'); if (t === npText) return;
+  const t = settings.radio === false || settings.muted || !settings.musicVol ? 'Radio off' : audio.trackError ? 'Radio \u00b7 static' : trackName(), el = $('nowPlay'); if (t === npText) return;
   const set = () => { $('npName').textContent = t; el.setAttribute('aria-label', `Now playing: ${t}. Next track`); el.classList.remove('swap'); };
   clearTimeout(npT); if (npText === null) set(); else { el.classList.add('swap'); npT = setTimeout(set, 180); } npText = t;
 }
@@ -619,14 +659,15 @@ updateNowPlaying(); $('nowPlay').addEventListener('click', nextTrack); audio.onT
 // The board side has less room: that is what the board view is for.
 // The radio and the bucket beside your chair are how music and the fish gallery are reached during a game.
 const HOT = {
-  radio: { label: () => `Radio \u00b7 ${settings.muted || !settings.musicVol ? 'off' : trackName()}`, click: nextTrack,
+  radio: { label: () => `Radio \u00b7 ${settings.radio === false || settings.muted || !settings.musicVol ? 'off' : trackName()}`, click: nextTrack,
     wheel: d => { settings.musicVol = clamp(Math.round((settings.musicVol - Math.sign(d) * .05) * 100) / 100, 0, 1); audio.applyVolumes(); saveSettings(settings); toast(`Radio volume ${Math.round(settings.musicVol * 100)}%`); updateNowPlaying(); } },
   bucket: { label: () => { const n = fishing.journal.reduce((a, e) => a + (KINDS.some(k => k.id === e.id) ? e.n : 0), 0); return n ? `Bucket \u00b7 ${n} fish` : 'Bucket \u00b7 empty'; }, click: () => openGallery() },
   rod: { label: () => 'Put the rod down', on: () => !fishing.stowed, click: () => setStowed(true) },
   pickup: { label: () => 'Pick up the rod', on: () => fishing.stowed, click: openTackle },
+  bait: { label: () => 'Toss some bait', click: tossBait },
 };
 let hot = null, look = null, lookDrag = null;   // look: last pointer position over the canvas, in -1..1
-const LOOK = { away: 46, board: 12, down: 30, up: 10 };   // how far the head can turn, degrees
+const LOOK = { away: 150, board: 85, down: 30, up: 25 };   // how far the head can turn, degrees: board reaches past the friend to the campfire (FIRE in world.js)
 const hotRay = new THREE.Raycaster(), hotNdc = new THREE.Vector2(), hotTmp = new THREE.Vector3();
 function setHot(h) { hot = h; stage.classList.toggle('hot', !!h); $('hotLabel').hidden = !h; if (h) $('hotLabel').textContent = HOT[h.key].label(); }
 function lookFrom(e) { const r = canvas.getBoundingClientRect(); look = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: ((e.clientY - r.top) / r.height) * 2 - 1 }; }
@@ -655,15 +696,15 @@ const chessWord = v => v < .3 ? 'Gentle' : v < .6 ? 'Fair' : v < .85 ? 'Sharp' :
 function openSettings() {
   $('sCycle').checked = settings.cycle; $('sLen').value = settings.dayMin; $('sLenOut').textContent = `${settings.dayMin} min`;
   $('sFire').value = settings.fire; $('sSway').checked = settings.sway; $('sTilt').checked = settings.tilt; $('sSway').disabled = reduce;
-  $('sMute').checked = settings.muted;
+  $('sMute').checked = settings.muted; $('sRadio').checked = settings.radio !== false; $('sFilter').value = FILTERS.includes(settings.filter) ? settings.filter : 'none';
   [['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol']].forEach(([id, k]) => { $(id).value = settings[k]; $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; });
   const tr = $('sTrack'); tr.textContent = ''; audio.tracks().forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; tr.appendChild(o); }); tr.value = settings.track; $('sMode').value = settings.playMode;
   $('sChallenge').checked = !!settings.challenge; $('sAdapt').checked = !!settings.chessAdaptive; $('sChess').value = settings.chessLevel; $('sChessOut').textContent = chessWord(settings.chessLevel);
   $('sTrip').hidden = !(scene_ === 'game' || loadTrip('liam')); $('sNewAsk').hidden = true; $('sNew').hidden = false;
   $('sNewQ').textContent = scene_ === 'game' ? 'Start a new trip? This weekend ends.' : 'Forget your saved trip? The next one starts fresh.';
-  settingsFrom = document.activeElement; $('settings').hidden = false; $('setClose').focus();
+  settingsFrom = document.activeElement; $('settings').hidden = false; updateUI(); $('setClose').focus();
 }
-function closeSettings() { $('settings').hidden = true; saveSettings(settings); settingsFrom && settingsFrom.focus && settingsFrom.focus(); }
+function closeSettings() { $('settings').hidden = true; saveSettings(settings); updateUI(); settingsFrom && settingsFrom.focus && settingsFrom.focus(); }
 $('mSettings').addEventListener('click', openSettings);
 $('gearBtn').addEventListener('click', openSettings);
 $('setClose').addEventListener('click', closeSettings);
@@ -672,7 +713,9 @@ $('sCycle').addEventListener('change', e => { settings.cycle = e.target.checked;
 $('sLen').addEventListener('input', e => { settings.dayMin = parseInt(e.target.value, 10); $('sLenOut').textContent = `${settings.dayMin} min`; applySettings(); });
 $('sMute').addEventListener('change', e => { settings.muted = e.target.checked; audio.applyVolumes(); updateNowPlaying(); });
 [['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol']].forEach(([id, k]) => $(id).addEventListener('input', e => { settings[k] = parseFloat(e.target.value); $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; audio.applyVolumes(); if (k === 'sfxVol') audio.sfx('catch'); if (k === 'musicVol') updateNowPlaying(); }));
-$('sTrack').addEventListener('change', e => { audio.setTrack(e.target.value); updateNowPlaying(); });
+$('sTrack').addEventListener('change', e => { audio.setTrack(e.target.value); $('sRadio').checked = true; updateNowPlaying(); });
+$('sRadio').addEventListener('change', e => { audio.setRadio(e.target.checked); saveSettings(settings); updateNowPlaying(); });
+$('sFilter').addEventListener('change', e => { settings.filter = e.target.value; applySettings(); saveSettings(settings); });
 $('sChallenge').addEventListener('change', e => setChallenge(e.target.checked));
 $('sAdapt').addEventListener('change', e => { settings.chessAdaptive = e.target.checked; saveSettings(settings); });
 $('sChess').addEventListener('input', e => { settings.chessLevel = parseFloat(e.target.value); $('sChessOut').textContent = chessWord(settings.chessLevel); saveSettings(settings); });
@@ -695,7 +738,7 @@ $('mSingle').addEventListener('click', () => { if (scene_ === 'title') { rig.sel
 $('pickBack').addEventListener('click', () => { rig.selTarget = 0; setScene('title'); });
 $('pickLiam').addEventListener('click', () => startPick('liam'));
 $('pickXiao').addEventListener('click', () => startPick('xiao'));
-$('quitBtn').addEventListener('click', () => quitToTitle(false));
+$('quitBtn').addEventListener('click', () => { if (!$('settings').hidden) closeSettings(); else if (scene_ === 'game' && !$('tackle').hidden) closeTackle(); else if (scene_ === 'game' && !$('catch').hidden) finishCatch(''); else quitToTitle(false); });
 $('panChip').addEventListener('click', () => {
   if (view === 'fish') { if (fishing.bite) strike(); else goView('board'); }
   else { if (fishing.bite) pendingStrike = true; goView('fish'); }
@@ -704,7 +747,8 @@ $('nib').addEventListener('click', () => { pendingStrike = true; goView('fish');
 $('hintBtn').addEventListener('click', askHint);
 $('undoBtn').addEventListener('click', takeBack);
 document.addEventListener('keydown', e => { if (e.metaKey || e.ctrlKey || e.altKey || scene_ !== 'game') return; if (e.key === '1') goView('fish'); if (e.key === '2') goView('board'); });
-document.addEventListener('keydown', e => { if (e.key === ' ' && scene_ === 'game' && view === 'fish' && !overlayOpen() && !['INPUT', 'BUTTON'].includes(e.target.tagName)) { e.preventDefault(); strike(); } });
+document.addEventListener('keydown', e => { if (e.key === ' ' && scene_ === 'game' && view === 'fish' && !overlayOpen() && !['INPUT', 'BUTTON'].includes(e.target.tagName)) { e.preventDefault(); if (e.repeat) return; if (settings.challenge && fishing.canCast()) startWind('key'); else strike(); } });
+document.addEventListener('keyup', e => { if (e.key === ' ' && wind && wind.src === 'key') endWind(true); });
 
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function pickSquare(e) {
@@ -717,20 +761,20 @@ canvas.addEventListener('pointerdown', e => {
   if (scene_ !== 'game') return;
   if (view === 'fish') {
     if (rig.tween || overlayOpen()) return;
-    lookFrom(e); pickHot(); lookDrag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId);
+    lookFrom(e); pickHot(); lookDrag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); if (!hot) startWind('ptr');
     return;
   }
   if (playable()) { const sq = pickSquare(e); if (sq) onSquare(sq); }
 });
 const endLook = e => {
   if (!lookDrag) return; const d = lookDrag; lookDrag = null; stage.classList.remove('dragging');
-  if (d.moved || e.type === 'pointercancel' || scene_ !== 'game' || view !== 'fish' || overlayOpen()) return;
-  if (hot) { audio.sfx('click'); HOT[hot.key].click(); } else strike();   // a plain click
+  if (d.moved || e.type === 'pointercancel' || scene_ !== 'game' || view !== 'fish' || overlayOpen()) { endWind(false); return; }
+  if (hot) { endWind(false); audio.sfx('click'); HOT[hot.key].click(); } else if (wind && wind.src === 'ptr') endWind(true); else strike();   // a plain click
 };
 canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointercancel', endLook);
 canvas.addEventListener('pointermove', e => {
   if (lookDrag) {
-    if (!lookDrag.moved && Math.hypot(e.clientX - lookDrag.x, e.clientY - lookDrag.y) > 6) { lookDrag.moved = true; stage.classList.add('dragging'); if (hot) setHot(null); }
+    if (!lookDrag.moved && Math.hypot(e.clientX - lookDrag.x, e.clientY - lookDrag.y) > 6) { lookDrag.moved = true; endWind(false); stage.classList.add('dragging'); if (hot) setHot(null); }
     if (lookDrag.moved) { turnHead(e.clientX - lookDrag.x, e.clientY - lookDrag.y); lookDrag.x = e.clientX; lookDrag.y = e.clientY; return; }
   }
   if (scene_ === 'game' && view === 'fish' && !rig.tween && !overlayOpen()) { lookFrom(e); pickHot(); } else if (hot) setHot(null);
@@ -752,9 +796,9 @@ let last = performance.now(), lastTick = 0;
 function frame(now) {
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   if (now - lastTick > 1000) { lastTick = now; tickTalk(now); audio.setScene(dayNight.night, campfire.level); }
-  fishing.night = dayNight.night; rig.step(now, dt); fishing.stepFish(dt, now); if (scene_ === 'game') fishing.stepRod(now); lakeUpdate(now); world.update(now);
+  fishing.night = dayNight.night; rig.step(now, dt); fishing.stepFish(dt, now); if (scene_ === 'game') fishing.stepRod(now); lakeUpdate(now); bait.update(now); world.update(now, camera, rig.u * (1 - rig.wide));
   dayNight.update(dt); campfire.update(now, dt, settings.fire === 'always' || (settings.fire === 'auto' && dayNight.night > .28) ? 1 : 0);
-  updateDial(); updateFight(dt); board.update(now); placeHotLabel(); placeTackle();
+  updateDial(); updateFight(dt); board.update(now); placeHotLabel(); placeWind(); placeTackle();
   stage.classList.toggle('night', dayNight.night > .5);
   syncPeople(); if (scene_ === 'select') placePick();
   if (scene_ === 'gallery') { gallery.update(now, dt, dayNight.night); renderer.render(gallery.scene, gallery.camera); } else renderer.render(scene, camera);

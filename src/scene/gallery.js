@@ -3,8 +3,11 @@ import { PAL } from './palette.js';
 import { mat } from './world.js';
 import { KINDS } from '../game/fishing.js';
 import { fishTexture } from '../assets/fishart.js';
+import { ART } from '../assets/manifest.js';
+import { loadTex, PLANE } from './art.js';
 
 /* The fish gallery: Liam and Xiao inside the cabin, looking at an aquarium on a table.
+   Painted layer (only if cabin.png loads, never under ?noart): the room's shell and the 3D folk are hidden, leaving the deck, table and tank in front of a painted sky, ground, the cabin and a pair of sprites doing an activity that cross-fades every so often. No art keeps the room above.
    The tank rocks gently. Fish swim about; drag one to move it, click one to see its name and how many you have caught. */
 const box = (p, x, y, z, w, h, d, c, o) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c, o)); m.position.set(x, y, z); p.add(m); return m; };
 /** A placeholder person in one of a few relaxed poses. Faces -z (toward the tank). */
@@ -49,6 +52,7 @@ export function buildGallery() {
   box(room, 0, 3.05, -1, .02, .5, .02, 0x3a2b22);
   // shelf with jars, a rug
   box(room, 3.1, 1.3, -3.7, 2, .06, .4, 0x6b4a33); [0, 1, 2].forEach(i => box(room, 2.5 + i * .55, 1.5, -3.7, .22, .34, .22, [0xe6b84f, 0x5f8fa8, 0xc4685a][i]));
+  const shell = room.children.slice(1);
   box(room, 0, .01, .2, 4.4, .02, 3.2, 0xb7745a);
 
   // table and tank
@@ -56,10 +60,10 @@ export function buildGallery() {
   [[-1.1, -1.3], [1.1, -1.3], [-1.1, -2.3], [1.1, -2.3]].forEach(([x, z]) => box(room, x, .4, z, .12, .8, .12, 0x5a3e2a));
   // an armchair, a stool and a side table: places to relax
   const arm = new THREE.Group(); arm.position.set(-2.55, 0, -.9); arm.rotation.y = .5; room.add(arm);
-  box(arm, 0, .25, 0, .9, .5, .85, 0x8a4b3a); box(arm, 0, .75, .38, .9, .7, .14, 0x8a4b3a); box(arm, -.5, .45, 0, .14, .5, .85, 0x7a3f30); box(arm, .5, .45, 0, .14, .5, .85, 0x7a3f30);
+  box(arm, 0, .25, 0, .9, .5, .85, 0x8a4b3a); box(arm, 0, .75, .38, .9, .7, .14, 0x8a4b3a); box(arm, -.5, .45, 0, .14, .5, .85, 0x7a3f30); box(arm, .5, .45, 0, .14, .5, .85, 0x7a3f30); shell.push(arm);
   const stool = new THREE.Group(); stool.position.set(2.3, 0, -.9); room.add(stool);
   box(stool, 0, .5, 0, .5, .08, .5, 0x6b4a33); [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]].forEach(([x, z]) => box(stool, x, .25, z, .06, .5, .06, 0x5a3e2a));
-  box(room, -3.3, .35, -2.5, .7, .7, .6, 0x6b4a33); box(room, -3.3, .78, -2.5, .12, .14, .12, 0xe8e2d2);
+  box(room, -3.3, .35, -2.5, .7, .7, .6, 0x6b4a33); box(room, -3.3, .78, -2.5, .12, .14, .12, 0xe8e2d2); shell.push(room.children[room.children.length - 1], room.children[room.children.length - 2]);
   const tank = new THREE.Group(); tank.position.set(0, .87, -1.8); scene.add(tank);
   const TW = 1.8, TH = 1.0, TD = .8;
   const glass = new THREE.Mesh(new THREE.BoxGeometry(TW, TH, TD), new THREE.MeshLambertMaterial({ color: 0xcdeef2, transparent: true, opacity: .1, side: THREE.DoubleSide, depthWrite: false })); glass.position.y = TH / 2; glass.renderOrder = 5; tank.add(glass);
@@ -92,6 +96,33 @@ export function buildGallery() {
   }
   arrange(0);
 
+
+  // painted layer: sky, ground, cabin, and activity pairs that cross-fade
+  const P = { on: false, cur: 0, next: -1, f: 0, timer: 11 }, paint = new THREE.Group(); paint.visible = false; scene.add(paint);
+  const tintMats = [], NIGHTC = new THREE.Color(0x5a6490), tc = new THREE.Color();
+  const flatTex = (stops) => { const c = document.createElement('canvas'); c.width = 4; c.height = 128; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128); stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, 4, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const pmat = (t, op = 1) => { const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: op, alphaTest: .02, depthWrite: false, fog: false, side: THREE.DoubleSide }); tintMats.push(m); return m; };
+  const sprite = (parent, t, x, z, h, mt) => { const w = h * t.image.width / t.image.height, m = new THREE.Mesh(PLANE, mt); m.scale.set(w, h, 1); m.position.set(x - w / 2, 0, z); parent.add(m); return m; };
+  const skyMat = new THREE.MeshBasicMaterial({ map: flatTex([[0, '#8fb4cf'], [.7, '#cfe0e6'], [1, '#f1e6cf']]), fog: false }), skyM = new THREE.Mesh(new THREE.PlaneGeometry(200, 50), skyMat); skyM.position.set(0, 18, -40); paint.add(skyM);
+  const gndMat = new THREE.MeshBasicMaterial({ map: flatTex([[0, '#9aa66a'], [1, '#8a9658']]), fog: false }), gnd = new THREE.Mesh(new THREE.PlaneGeometry(160, 70), gndMat); gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, -.07, -10); paint.add(gnd);
+  tintMats.push(skyMat, gndMat);
+  loadTex(ART.plates.sky_day).then(t => { if (t) { skyMat.map = t; skyMat.needsUpdate = true; } });
+  loadTex(ART.ground.grass).then(t => { if (!t) return; const g = t.clone(); g.wrapS = g.wrapT = THREE.RepeatWrapping; g.repeat.set(26, 14); g.needsUpdate = true; gndMat.map = g; gndMat.needsUpdate = true; });
+  const slots = [], PEOPLE = ART.people;
+  const ARR = [[['liam_side', -.85], ['xiao_side', .85]], [['liam_back', -.65], ['xiao_back', .65]], [['liam_front', -.75], ['xiao_back', .65]]];
+  const setOp = (i, o) => { const s = slots[i]; if (!s) return; s.op = o; s.group.visible = o > .001; s.mats.forEach(m => { m.opacity = o; }); };
+  (ART.gallery.activities || []).forEach((act, i) => {
+    const s = { group: new THREE.Group(), mats: [], op: 0 }; s.group.visible = false; s.group.position.set(-2.6, 0, -5.4); paint.add(s.group); slots.push(s);
+    loadTex(act && act.src).then(async at => {
+      if (at) { s.mats.push(pmat(at, s.op)); sprite(s.group, at, 0, 0, 2.5, s.mats[0]); return; }
+      for (const [k, x] of ARR[i % ARR.length]) { const t = await loadTex(PEOPLE[k]); if (!t) continue; const mt = pmat(t, s.op); s.mats.push(mt); sprite(s.group, t, x, 0, 2.1, mt); }
+    });
+  });
+  loadTex(ART.gallery.backdrop).then(t => {
+    if (!t) return;
+    sprite(paint, t, 1.3, -7.5, 4.8, pmat(t)); P.on = true; paint.visible = true; shell.forEach(o => { o.visible = false; }); folk.forEach(f => { f.visible = false; }); scene.fog = null; slots.forEach((s, i) => setOp(i, i === P.cur ? 1 : 0));
+  });
+
   // fish
   const fishGroup = new THREE.Group(); tank.add(fishGroup);
   let fish = [];
@@ -114,7 +145,8 @@ export function buildGallery() {
     return fish.length;
   };
   G.fishCount = () => fish.length;
-  G.enter = (journal) => { arrange(Math.floor(Math.random() * SCEN.length)); G.setFish(journal); G.t0 = performance.now(); G.view = 'room'; G.vt = 0; room.visible = true; folk.forEach(f => { f.visible = true; }); };
+  G.enter = (journal) => { arrange(Math.floor(Math.random() * SCEN.length)); G.setFish(journal); G.t0 = performance.now(); G.view = 'room'; G.vt = 0; room.visible = true; folk.forEach(f => { f.visible = !P.on; });
+    P.cur = Math.floor(Math.random() * Math.max(1, slots.length)); P.next = -1; P.timer = 11; slots.forEach((s, i) => setOp(i, i === P.cur ? 1 : 0)); };
   G.setView = v => { G.view = v; G.vt0 = performance.now(); };
   /** hold a fish at a point in tank-local space (while dragging) */
   G.hold = (f, x, y) => { f.held = true; f.x = Math.max(-BX, Math.min(BX, x)); f.y = Math.max(BY0, Math.min(BY1, y)); f.tx = f.x; f.ty = f.y; };
@@ -129,10 +161,15 @@ export function buildGallery() {
     camera.position.set(sx * (1 - v), 1.5 + Math.sin(t * .3) * .02 * (1 - v) - .1 * v, ry + (-0.05 - ry) * v);
     camera.lookAt(0, 1.25 + .12 * v, -1.8);
     camera.fov = 50 + (44 - 50) * v; camera.updateProjectionMatrix();
-    const closeUp = G.vt > .6; room.visible = !closeUp || true; folk.forEach(f => { f.visible = G.vt < .85; });
+    const closeUp = G.vt > .6; room.visible = !closeUp || true; folk.forEach(f => { f.visible = !P.on && G.vt < .85; });
+    if (P.on) {
+      if (slots.length > 1) { P.timer -= dt; if (P.timer <= 0) { P.timer = 11 + Math.random() * 4; P.next = (P.cur + 1 + Math.floor(Math.random() * (slots.length - 1))) % slots.length; P.f = 0; } }
+      if (P.next >= 0) { P.f = Math.min(1, P.f + dt / 1.8); setOp(P.cur, 1 - P.f); setOp(P.next, P.f); if (P.f >= 1) { P.cur = P.next; P.next = -1; } }
+      tc.set(0xffffff).lerp(NIGHTC, night * .65); tintMats.forEach(m => m.color.copy(tc));
+    }
     // window and lamp follow the time of day
     windowMat.color.set(0xbfd8e8).lerp(new THREE.Color(0x0e1838), night); hemi.intensity = .9 - .35 * night; lamp.intensity = 7 + 5 * night + Math.sin(t * 7) * .15;
-    scene.background.set(0x2a2018).lerp(new THREE.Color(0x120e0a), night); scene.fog.color.copy(scene.background);
+    if (!P.on) { scene.background.set(0x2a2018).lerp(new THREE.Color(0x120e0a), night); scene.fog.color.copy(scene.background); }
     // the gentle rock: the tank leans, the water sloshes a little behind it
     tank.rotation.z = Math.sin(t * .6) * .02; tank.position.x = Math.sin(t * .6) * .01; waterG.rotation.z = Math.sin(t * .6 - 1.1) * .035;
     plants.forEach((m, i) => { m.rotation.z = Math.sin(t * 1.3 + i) * .12; });
