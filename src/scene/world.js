@@ -44,9 +44,18 @@ function buildPerson(shirt, cap, chairColor, x, pants) {
   const head = new THREE.Group(); head.position.set(0, HEAD_Y, .2); g.add(head);
   const skull = new THREE.Mesh(new THREE.SphereGeometry(.17, 10, 8), mat(PAL.skin)); head.add(skull);
   const hat = new THREE.Mesh(new THREE.SphereGeometry(.185, 10, 6, 0, Math.PI * 2, 0, Math.PI * .55), mat(cap)); hat.position.y = .02; head.add(hat);
+<<<<<<< HEAD
+  // fishing rod, held out over the lake, and the same rod resting against the chair (away from the board) when it's put down
+  const rod = limb(g, [.12, .85, -.3], [.1, 2.2, -2.3], .02, 0x3a2b22);
+  const rest = limb(g, [-dir * .42, .02, .12], [-dir * .72, 1.95, -1.3], .02, 0x3a2b22); rest.visible = false;
+  // invisible, fatter stand-ins so the thin rods are easy to point at (raycasts ignore visibility)
+  const hit = (a, b) => { const m = limb(g, a, b, .1, 0xffffff); m.visible = false; return m; };
+  return { group: g, head, rod, rest, rodHit: hit([.12, .95, -.45], [.1, 2.2, -2.3]), restHit: hit([-dir * .45, .3, -.05], [-dir * .72, 1.95, -1.3]) };
+=======
   // fishing rod, held out over the lake
   limb(g, [.12, .85, -.3], [.1, 2.2, -2.3], .02, 0x3a2b22);
   return { group: g, head };
+>>>>>>> origin/main
 }
 
 function boardTexture() {
@@ -111,6 +120,28 @@ export function buildWorld(scene) {
   // fence with a gap at the path
   for (let x = -15; x <= 15; x += 2.5) { if (Math.abs(x) < 1.8) continue; box(scene, x, .6, 12, .12, 1.2, .12, 0x7b5c40); if (x + 2.5 <= 15 && Math.abs(x + 2.5) >= 1.8) { box(scene, x + 1.25, .95, 12, 2.5, .08, .06, 0x8d6b4b); box(scene, x + 1.25, .55, 12, 2.5, .08, .06, 0x8d6b4b); } }
 
+<<<<<<< HEAD
+  // things within reach of each chair, on the side away from the board: a radio on a crate and the fish bucket.
+  // Look around while fishing to find them; they are how music and the fish gallery are reached in a game.
+  W.hot = [];
+  [['liam', -1], ['xiao', 1]].forEach(([who, s]) => {
+    const radio = new THREE.Group(); radio.position.set(s * 2.3, 0, -.6); radio.rotation.y = s * .5; scene.add(radio);
+    box(radio, 0, .2, 0, .42, .4, .34, 0x8d6b4b);                                     // crate
+    box(radio, 0, .5, 0, .3, .18, .11, 0x6f9a95); box(radio, 0, .6, 0, .22, .03, .05, 0x3a3228);   // body, handle
+    const sp = new THREE.Mesh(new THREE.CircleGeometry(.05, 14), mat(0xe9dfc8)); sp.position.set(-.06, .5, .056); radio.add(sp);
+    box(radio, .08, .52, .056, .08, .03, .01, 0xf2c879, { emissive: 0xf2c879, emissiveIntensity: .5 });
+    limb(radio, [.11, .59, -.03], [.18, .86, -.06], .006, 0xcfcfcf);
+    const bucket = new THREE.Group(); bucket.position.set(s * 1.95, 0, -1.3); scene.add(bucket);
+    const pail = new THREE.Mesh(new THREE.CylinderGeometry(.17, .13, .26, 12, 1, true), mat(0x7f97a3, { side: THREE.DoubleSide })); pail.position.y = .13; bucket.add(pail);
+    const water = new THREE.Mesh(new THREE.CircleGeometry(.16, 12), mat(0x5d8aa0)); water.rotation.x = -Math.PI / 2; water.position.y = .2; bucket.add(water);
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(.17, .008, 4, 16, Math.PI), mat(0x4a4540)); handle.position.y = .26; bucket.add(handle);
+    const P = W.people[who], px = s * SEAT_X;
+    W.hot.push({ key: 'radio', who, obj: radio, at: [s * 2.3, .75, -.6] }, { key: 'bucket', who, obj: bucket, at: [s * 1.95, .45, -1.3] },
+      { key: 'rod', who, obj: P.rodHit, at: [px + .1, 1.75, -1.55] }, { key: 'pickup', who, obj: P.restHit, at: [px + s * .64, 1.5, -.9] });
+  });
+
+=======
+>>>>>>> origin/main
   W.update = t => { W.animated.forEach(f => f(t)); };
   return W;
 }

@@ -92,8 +92,13 @@ export function createAudio(settings) {
     if (!t.src) { startPad(); return; }
     const el = new Audio(t.src); el.loop = settings.playMode === 'one'; el.volume = 0; el.crossOrigin = 'anonymous';
     const src = A.ctx.createMediaElementSource(el); src.connect(musicBus);
+<<<<<<< HEAD
+    el.addEventListener('error', () => { A.trackError = t.name; if (curEl === el) { curEl = null; startPad(); } if (A.onTrack) A.onTrack(settings.track); });
+    el.addEventListener('ended', () => { if (settings.playMode === 'all') { const i = MUSIC.findIndex(x => x.id === t.id); settings.track = MUSIC[(i + 1) % MUSIC.length].id; playTrack(settings.track); if (A.onTrack) A.onTrack(settings.track); } });
+=======
     el.addEventListener('error', () => { A.trackError = t.name; if (curEl === el) { curEl = null; startPad(); } });
     el.addEventListener('ended', () => { if (settings.playMode === 'all') { const i = MUSIC.findIndex(x => x.id === t.id); playTrack(MUSIC[(i + 1) % MUSIC.length].id); } });
+>>>>>>> origin/main
     curEl = el; el.play().catch(() => {});
     const t0 = performance.now(), iv = setInterval(() => { const p = Math.min(1, (performance.now() - t0) / 1500); el.volume = p; if (p >= 1) clearInterval(iv); }, 40);
   }

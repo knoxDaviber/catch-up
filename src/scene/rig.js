@@ -34,6 +34,10 @@ export class CameraRig {
     this.camera = camera; camera.rotation.order = 'YXZ';
     this.u = 0; this.wide = 1; this.sel = 0; this.selTarget = 0; this.side = 1;
     this.mode = 'title'; this.tween = null; this.sitT = -1; this.sway = true; this.tilt = true;
+<<<<<<< HEAD
+    this.look = { yaw: 0, pitch: 0 }; this.lookTarget = { yaw: 0, pitch: 0 };   // free head movement while fishing (radians)
+=======
+>>>>>>> origin/main
   }
   goTo(view, seconds = 2.8, onDone) {
     const u1 = view === 'board' ? 1 : view === 'fish' ? 0 : this.u, w1 = view === 'wide' ? 1 : 0;
@@ -56,6 +60,14 @@ export class CameraRig {
     const sm = ease(this.sel), S = POSES.select;
     if (sm > 0) { p.pos = p.pos.map((v, i) => lerp(v, S.pos[i], sm)); p.pitch = lerp(p.pitch, S.pitch, sm); p.hfov = lerp(p.hfov, S.hfov, sm); }
     if (this.mode === 'title') p.pos[0] += Math.sin(now / 5200) * .3;
+<<<<<<< HEAD
+    // looking around: eases toward the target, and only applies near the fishing pose
+    const lk = this.look, lt = this.lookTarget, k = Math.min(1, dt * 3.2);
+    lk.yaw += (lt.yaw - lk.yaw) * k; lk.pitch += (lt.pitch - lk.pitch) * k;
+    const lw = (1 - ease(clamp(this.u * 2.5, 0, 1))) * (1 - m) * (1 - sm);
+    p.yaw += lk.yaw * lw; p.pitch += lk.pitch * lw;
+=======
+>>>>>>> origin/main
     if (this.sitT > 0) { const se = 1 - ease(clamp((now - this.sitT) / 2400, 0, 1)); p.pos[1] += .5 * se; p.pitch -= .1 * se; p.pos[2] += .15 * se; }
     if (this.sway) { p.yaw += Math.sin(now / 2100) * .011 * (1 - m * .6); p.pitch += Math.sin(now / 1700 + 1) * .007; p.pos[1] += Math.sin(now / 2600) * .008 * (1 - m); }
     const c = this.camera; c.position.set(...p.pos); c.rotation.set(p.pitch, -p.yaw, p.roll); c.fov = p.hfov / c.aspect > 0 ? this.vfov(p.hfov) : 60; c.updateProjectionMatrix();
