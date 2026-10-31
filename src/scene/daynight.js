@@ -120,8 +120,8 @@ export function createDayNight(scene, world, camera) {
     world.lake.material.emissive.copy(lk).multiplyScalar(.35 * N(a.night, b.night));
     // painted planes are unlit: tint them by the light, relative to noon, with a floor so they still read by moonlight
     tint.copy(world.hemi.color).multiplyScalar(world.hemi.intensity * .6).add(tmpB.copy(world.sun.color).multiplyScalar(world.sun.intensity * .4));
-    tint.r = Math.max(.07, Math.min(1, tint.r / NOON.r)); tint.g = Math.max(.08, Math.min(1, tint.g / NOON.g)); tint.b = Math.max(.15, Math.min(1, tint.b / NOON.b)); setArtTint(tint);
-    const night = D.night = N(a.night, b.night);
+    tint.r = Math.max(.07, Math.min(1, tint.r / NOON.r)); tint.g = Math.max(.08, Math.min(1, tint.g / NOON.g)); tint.b = Math.max(.15, Math.min(1, tint.b / NOON.b));
+    const night = D.night = N(a.night, b.night); setArtTint(tint, night);
     // the sun rises at 6, peaks at 12 and sets at 18; the moon rises at 18 and sets at 6. The light's east-west side follows the visible body.
     const ang = Math.PI * (h - 6) / 12, mang = Math.PI * (((h - 18) % 24 + 24) % 24) / 12;
     const sunEl = place(sunSp, camera.position, ang), moonEl = place(moonSp, camera.position, mang);

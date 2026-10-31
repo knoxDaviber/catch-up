@@ -66,7 +66,7 @@ const boardSide = () => (myColor === 'b' ? side() : -side());   // keeps your pi
 // talking and the friend's messages never block the rod: you can strike mid-conversation
 // focus: a heavy story beat (#focus in the ink) holds everything else until it's answered: no casting, no moves, no turning away
 let focus = null, moves = [];   // moves: this chess game so far, {from, to, promotion}, replayed when a trip is resumed
-const overlayOpen = () => scene_ !== 'game' || fishing.catchOpen || fishing.fighting || !$('settings').hidden || !!focus || !$('tackle').hidden;
+const overlayOpen = () => scene_ !== 'game' || fishing.fighting || !$('settings').hidden || !!focus || !$('tackle').hidden;
 const playable = () => scene_ === 'game' && view === 'board' && !rig.tween && !promoting && !focus && $('settings').hidden && game && !game.game_over() && game.turn() === myColor;
 
 let lastSpoke = 0;
@@ -331,11 +331,13 @@ function setFocus(on) {
 const tripKey = p => 'catchup.trip.v1.' + (p || player);
 function saveTrip() {
   let j = pendingInk; try { if (ink()) j = ink().save(); } catch (e) { console.warn('trip ink', e); }
-  const t = { ink: j, myColor, moves, hour: dayNight.hour, stayed, storyEnded, chessBetterDone, stowed: fishing.stowed };
+  const t = { ink: j, myColor, moves, hour: dayNight.hour, stayed, storyEnded, chessBetterDone, stowed: fishing.stowed, layout: world.layout };
   try { localStorage.setItem(tripKey(), JSON.stringify(t)); } catch (e) { /* storage is optional */ }
 }
 function loadTrip(p) { try { const t = JSON.parse(localStorage.getItem(tripKey(p)) || 'null'); return t && typeof t === 'object' ? t : null; } catch (e) { return null; } }
 function clearTrip(p) { try { localStorage.removeItem(tripKey(p)); } catch (e) { /* ignore */ } }
+/** The trip's scenery layout (world.setLayout): a saved trip keeps its own; no seed (a fresh trip) gets a new one. */
+function useLayout(s) { s = Number.isInteger(s) && s > 0 && s < 2147483647 ? s : 1 + Math.floor(Math.random() * 2147483645); if (s !== world.layout) world.setLayout(s); }
 /** A fresh weekend for the story (after New game+ the ink knows it: newgame_plus). */
 function freshStory() {
   const S = ink(); pendingInk = null; stayed = false; storyEnded = false; ngPending = false; chessBetterDone = false;
@@ -358,7 +360,7 @@ function newGamePlus() {
   if (scene_ !== 'game') return;
   playInk('leaving', () => setTimeout(() => blackout(() => {
     if (scene_ !== 'game') return;
-    settings.ngplus = true; saveSettings(settings); clearTrip(); clearMsgs(); clearTimeout(friendTimer); clearTimeout(askTimer); fight.cancel(); $('fight').hidden = true; $('catch').hidden = true; pendingStrike = false;
+    settings.ngplus = true; saveSettings(settings); clearTrip(); useLayout(); clearMsgs(); clearTimeout(friendTimer); clearTimeout(askTimer); fight.cancel(); $('fight').hidden = true; $('catch').hidden = true; pendingStrike = false;
     freshStory(); newGame(); fishing.reset(); setStowed(false); nextIdle = performance.now() + 60000; updateUI();
     setTimeout(() => playInk('arrival'), 1500); startFriendIfFirst(1400);
   }, 700), 1800), { auto: true });
@@ -392,7 +394,7 @@ fishing.challenge = settings.challenge;
 fishing.init();
 const lakeUpdate = buildLakeLife(scene, fishing, () => (mySeatX() < 0 ? -1 : 1), () => dayNight.night);
 const bait = buildBait(scene, (x, z, i) => { if (i % 5 === 0) { fishing.ripple(x, z, .05, .35, 800, performance.now()); audio.sfx(i === 0 ? 'splash' : 'nibble'); } });
-world.hot.push(...bait.hot);
+world.hot.push(...bait.hot, ...['liam', 'xiao'].map(who => ({ key: 'board', who, obj: board.group, at: [0, 1.1, 0] })));
 /** Toss a handful of bait towards your float. It draws fish in for a while (only while the line is in the water), then needs a rest. */
 function tossBait() {
   const now = performance.now(); if (!fishing.stowed && !fishing.toss(now)) { toast('Let them find it first.'); return; }
@@ -411,20 +413,48 @@ function placeWind() {
   w.style.left = clamp((hotTmp.x * .5 + .5) * 100, 8, 92) + '%'; w.style.top = clamp((-hotTmp.y * .5 + .5) * 100, 10, 90) + '%'; $('windFill').style.width = (windPower(performance.now()) * 100) + '%';
 }
 let pendingStrike = false;
+/* A catch, without a panel: the fish floats over the scene in a soft glow, name bubbles bob around it and a ring drains (paused while you type).
+   Pick a name to keep it; let the ring run out and it goes back in the lake. Nothing here blocks the board, the camera or the conversation. */
+const kname = k => /^(Australian|Murray)\b/.test(k.name) ? k.name : k.name.toLowerCase();   // proper nouns keep their capital
+const CATCH_MS = 12000; let catchT = null;
 function showCatch(c) {
+  const el = $('catch'), box = $('catchNames'), t = catchT = { left: CATCH_MS, last: performance.now(), paused: false };
+  el.classList.remove('away', 'kept', 'naming'); el.hidden = false;
   $('catchFish').innerHTML = fishHtml(c.kind);
-  $('catchTitle').textContent = `You caught a ${c.kind.name.toLowerCase()}!`;
-  $('catchMeta').textContent = `${c.size} cm · ${c.before ? `you have caught ${c.before} before` : 'new for your journal'}`;
-  const box = $('catchNames'); box.textContent = '';
-  c.names.forEach(nm => { const b = document.createElement('button'); b.type = 'button'; b.textContent = nm; b.addEventListener('click', () => finishCatch(nm)); box.appendChild(b); });
-  $('nameIn').value = ''; $('catch').hidden = false; box.querySelector('button')?.focus(); updateUI();
+  $('catchTitle').textContent = `${/^[aeiou]/i.test(c.kind.name) ? 'An' : 'A'} ${kname(c.kind)}!`;
+  $('catchMeta').textContent = `${c.size} cm · ${c.before ? `you've caught ${c.before} before` : 'new for your journal'}`;
+  box.textContent = '';
+  const at = (b, i) => { const a = [-.82, -.18, .82, .18][i] * Math.PI; b.style.left = (50 + 50 * Math.cos(a)) + '%'; b.style.top = (50 + 46 * Math.sin(a)) + '%'; b.style.setProperty('--d', (-i * .9) + 's'); return b; };
+  const bub = (txt, i, fn, cls) => { const b = at(document.createElement('button'), i); b.type = 'button'; b.className = 'cb' + (cls ? ' ' + cls : ''); b.textContent = txt; b.addEventListener('click', fn); box.appendChild(b); return b; };
+  c.names.slice(0, 3).forEach((nm, i) => bub(nm, i, () => finishCatch(nm)));
+  bub('Choose a name\u2026', 3, () => naming(true), 'choose');
+  const f = at(document.createElement('form'), 3); f.className = 'cb cname';
+  f.innerHTML = '<input type="text" maxlength="16" aria-label="Fish name" autocomplete="off" enterkeyhint="done"><button type="submit" aria-label="Keep it with this name">\u2713</button>';
+  f.addEventListener('submit', e => { e.preventDefault(); finishCatch(f.elements[0].value); });
+  f.elements[0].addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); naming(false); } });
+  f.elements[1].addEventListener('pointerdown', e => e.preventDefault());   // the tick keeps the input focused (Safari doesn't focus buttons on click)
+  f.addEventListener('focusout', e => { if (!f.contains(e.relatedTarget)) naming(false, true); });   // clicking away from the box resumes the ring
+  box.appendChild(f);   // not focused on open: a stray Space after reeling in shouldn't pick a name
+  const tick = now => {   // ends itself when the catch is settled or the trip is reset (quit, new game+)
+    if (catchT !== t || !fishing.catchOpen) return;
+    const dt = Math.min(100, now - t.last); t.last = now; if (!t.paused && scene_ === 'game') t.left -= dt;
+    $('catchRing').style.strokeDashoffset = 100 * (1 - Math.max(0, t.left) / CATCH_MS);
+    if (t.left <= 0) finishCatch(null, true); else requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick); updateUI();
 }
-function finishCatch(nick, release) { $('catch').hidden = true; fishing.finishCatch(nick, release); castReminded = false; maybeOfferChallenge(); updateUI(); }
+function naming(on, quiet) {
+  const el = $('catch'), inp = el.querySelector('.cname input'); if (!catchT || !inp) return;
+  el.classList.toggle('naming', on); catchT.paused = on;
+  if (on) { inp.value = ''; inp.focus(); } else if (!quiet) el.querySelector('.choose').focus({ preventScroll: true });
+}
+function finishCatch(nick, release) {
+  const el = $('catch'); catchT = null; el.classList.remove('naming'); el.classList.add(release ? 'away' : 'kept'); if (release) audio.sfx('splash');
+  setTimeout(() => { if (!fishing.catchOpen) { el.hidden = true; el.classList.remove('away', 'kept'); } }, reduce ? 250 : 800);
+  fishing.finishCatch(nick, release); castReminded = false; maybeOfferChallenge(); updateUI();
+}
 $('talkBtn').addEventListener('click', openTopics);
 $('swapBtn').addEventListener('click', () => { if (game && game.game_over()) offerRematch(); else askToSwap(); });
-$('nameForm').addEventListener('submit', e => { e.preventDefault(); finishCatch($('nameIn').value); });
-$('catchSkip').addEventListener('click', () => finishCatch(''));
-$('catchRelease').addEventListener('click', () => finishCatch('', true));
 function strike() { if (scene_ === 'game' && view === 'fish' && !rig.tween && !overlayOpen()) { if (fishing.stowed) toast('Your rod is resting by your chair.'); else fishing.strike(); } }
 /** Put your rod down (it rests against your chair, nothing bites) or pick it back up (line out, ready to cast). */
 function setStowed(on) {
@@ -477,34 +507,38 @@ function startPick(p) {
     rig.selTarget = 0; rig.sel = 0; rig.tween = null; rig.wide = 0; rig.u = 0; view = 'fish';
     newGame(); fishing.reset(); rig.sitT = performance.now(); gameStart = performance.now(); nextIdle = gameStart + 60000; castReminded = false; adaptDeclined = false; chessBetterDone = false; catchesHere = 0; fightLosses = 0; easyOffered = false; setScene('game');
     // a saved trip picks up where you left it (the next morning); otherwise settling in: chairs, rods, the board, a beer
-    let trip = loadTrip(p);
+    let trip = loadTrip(p); if (trip) useLayout(trip.layout ?? world.layout); else useLayout();   // an old save without a layout keeps the one on screen (saved from now on)
     if (trip) { try { restoreTrip(trip); } catch (e) { console.warn('trip save unreadable, starting fresh', e); clearTrip(p); trip = null; myColor = 'b'; newGame(); } }
     if (!trip) { freshStory(); setStowed(false); startFriendIfFirst(1400); }
     setTimeout(() => playInk(trip ? 'morning' : 'arrival'), 1500);
   }, 500);
 }
 /** Quit: a goodnight, the trip is saved, back to the menu. ending (New game): the weekend's over, the save is cleared. */
+const settleCatch = () => { if (fishing.catchOpen) finishCatch(null); };   // a catch still showing is kept unnamed, not lost
 function quitToTitle(ending) {
   if (scene_ !== 'game') return;
+  settleCatch();
   if (ending) clearTrip(); else saveTrip();
   setFocus(false); $('tackle').hidden = true; audio.sfx('grunt'); fight.cancel(); $('fight').hidden = true; scene_ = 'leaving'; clearTimeout(friendTimer); clearTimeout(askTimer); clearMsgs(); $('quitBtn').hidden = true; rig.lookTarget.yaw = rig.lookTarget.pitch = 0; setHot(null);
   talking = false; inkRun++; updateUI();
   const toTitle = () => { if (!ending) saveTrip(); blackout(() => {
     rig.tween = null; rig.wide = 1; rig.u = 0; rig.sel = 0; rig.selTarget = 0; rig.sitT = -1; view = 'wide';
-    newGame(); fishing.reset(); setStowed(false); $('catch').hidden = true; pendingStrike = false; clearMsgs(); setScene('title');
+    if (ending) useLayout(); newGame(); fishing.reset(); setStowed(false); $('catch').hidden = true; pendingStrike = false; clearMsgs(); setScene('title');
   }, 1200); };
   // goodnight (see you in the morning), or the weekend's over: a few quick lines (which ones depends on how much they let each other see), then the menu
   if (ink()) playInk(ending ? 'leaving' : 'goodnight', () => setTimeout(toTitle, 1800), { auto: true });
   else toTitle();
 }
+let viewLock = 0;   // one click is one switch: requests are ignored while the camera moves and for a short beat after
 function goView(v) {
-  if (scene_ !== 'game' || v === view || fishing.fighting || focus) return;
+  if (scene_ !== 'game' || v === view || fishing.fighting || focus || rig.tween || performance.now() < viewLock) return false;
   rig.lookTarget.yaw = rig.lookTarget.pitch = 0; setHot(null);   // turning away re-centres the head
   view = v; rig.goTo(v === 'board' ? 'board' : 'fish', 2.8, () => {
     if (v === 'fish' && pendingStrike) { pendingStrike = false; if (fishing.bite && !overlayOpen()) fishing.strike(); }   // a bite that began on the way over
     else if (v === 'board' && !fishing.bite && game.turn() === myColor) bark('takeTime', {}, 3000);
-    updateUI();
+    viewLock = performance.now() + 450; setTimeout(updateUI, 460); updateUI();
   });
+  return true;
   updateUI();
 }
 function updateUI() {
@@ -512,9 +546,13 @@ function updateUI() {
   $('viewTag').textContent = scene_ !== 'game' || rig.tween ? '' : view === 'board' && game ? (game.game_over() ? 'Game over' : game.turn() === myColor ? 'Your move' : `${friend()} is thinking`)
     : view === 'fish' && fishing.lineOut && !fishing.catchOpen ? (settings.challenge ? 'Hold, then let go to cast' : 'Click the water to cast') : '';
   const bite = fishing.bite;
-  $('panChip').textContent = view === 'fish' ? (bite ? 'Reel in!' : 'Look at the board ▾') : 'Back to the water ▴';
-  $('panChip').classList.toggle('urgent', bite && view === 'fish');
-  $('panChip').hidden = scene_ !== 'game' || fishing.fighting || fishing.catchOpen || !!focus;
+  $('panChip').textContent = 'Reel in!'; $('panChip').classList.add('urgent');   // only shown for a bite in the fishing view
+  $('panChip').hidden = !(scene_ === 'game' && view === 'fish' && bite && !rig.tween && !fishing.fighting && !focus);
+  // the view switch sits at the screen edge the camera turns towards: from your seat the board is on the friend's side, the lake back the other way
+  const vb = $('viewBtn'), toBoard = view === 'fish', right = toBoard === (player === 'liam'), busy = !!rig.tween || performance.now() < viewLock;
+  vb.hidden = scene_ !== 'game' || fishing.fighting || !!focus; vb.classList.toggle('busy', busy); vb.setAttribute('aria-disabled', busy); vb.classList.toggle('right', right); vb.classList.toggle('left', !right);   // not disabled: that would drop keyboard focus mid-move
+  vb.setAttribute('aria-label', toBoard ? 'Look at the board' : 'Back to fishing'); $('viewTxt').textContent = toBoard ? 'Board' : 'Fishing'; $('viewChev').textContent = right ? '\u203a' : '\u2039';
+  $('catch').classList.toggle('aside', view !== 'fish'); $('catch').classList.toggle('r', player === 'liam');   // over on the board, the fish waits on the side away from the lake button
   const nib = $('nib'); nib.hidden = !(scene_ === 'game' && fishing.alert && view !== 'fish' && !fishing.catchOpen && !focus);
   nib.classList.toggle('left', player === 'liam'); nib.classList.toggle('right', player !== 'liam'); nib.classList.toggle('bite', bite);
   $('bchips').hidden = !(scene_ === 'game' && view === 'board' && !rig.tween && game && !game.game_over() && !fishing.fighting && !focus);
@@ -523,7 +561,7 @@ function updateUI() {
   const sb = $('swapBtn'); sb.hidden = !(scene_ === 'game' && view === 'board' && !rig.tween && !asking && !focus && !fishing.fighting && game && (game.game_over() || canAskSwap()));
   $('bchips').style.bottom = sb.hidden ? '' : '12%';
   sb.textContent = game && game.game_over() ? 'Play again\u2026' : 'Ask to swap sides';
-  const back = !$('settings').hidden || (scene_ === 'game' && (!$('tackle').hidden || !$('catch').hidden)), qb = $('quitBtn');   // while a panel is open the top-left button closes it instead of quitting
+  const back = !$('settings').hidden || (scene_ === 'game' && !$('tackle').hidden), qb = $('quitBtn');   // while a panel is open the top-left button closes it instead of quitting
   qb.hidden = !(back || scene_ === 'game'); qb.classList.toggle('back', back); qb.innerHTML = back ? '&lsaquo; Back' : '&lsaquo; Quit';
   stage.classList.toggle('playable', !!playable());
   stage.classList.toggle('fishview', scene_ === 'game' && view === 'fish' && !rig.tween);
@@ -532,7 +570,7 @@ function updateUI() {
 /* ---------- fish gallery ---------- */
 let galleryFrom = 'title', drag = null;
 function openGallery() {
-  if (scene_ !== 'title' && scene_ !== 'game') return; galleryFrom = scene_; stopTalk();
+  if (scene_ !== 'title' && scene_ !== 'game' || fishing.catchOpen) return; galleryFrom = scene_; stopTalk();
   blackout(() => {
     const n = gallery.setFish(fishing.journal); gallery.enter(fishing.journal); setScene('gallery');
     $('galNote').hidden = false; $('galNote').textContent = n > 0 ? 'Click the tank for a closer look.' : 'The tank is empty. Catch a fish and give it a name, and it will move in.';
@@ -543,7 +581,7 @@ function stopTalk() { if (talking) { inkRun++; talking = false; setFocus(false);
 function showFishInfo(f) {
   gallery.selected = f; $('fiArt').innerHTML = fishHtml(f.kind);
   $('fiTitle').textContent = f.nick || f.kind.name;
-  $('fiMeta').textContent = f.nick ? `A ${f.kind.name.toLowerCase()}. You have caught ${f.count} ${f.count === 1 ? 'of its kind' : 'of its kind in all'}.` : `You have caught ${f.count} in all.`;
+  $('fiMeta').textContent = f.nick ? `A ${kname(f.kind)}. You have caught ${f.count} ${f.count === 1 ? 'of its kind' : 'of its kind in all'}.` : `You have caught ${f.count} in all.`;
   $('fishInfo').hidden = false; $('fiClose').focus();
 }
 function hideFishInfo() { $('fishInfo').hidden = true; gallery.selected = null; }
@@ -556,7 +594,7 @@ canvas.addEventListener('pointerdown', e => {
   if (scene_ !== 'gallery') return;
   if (gallery.view === 'room') {   // from across the room, any click on the tank (fish included) walks you over to it
     const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); galRay.setFromCamera(galNdc, gallery.camera);
-    if (galRay.intersectObject(gallery.glass, false).length) { gallery.setView('tank'); $('galNote').textContent = 'Drag a fish to move it. Click one to see its name.'; audio.sfx('pop'); return; }
+    if (galRay.intersectObject(gallery.glass, false).length) { gallery.setView('tank'); $('galNote').textContent = 'Drag a fish to move it, or lift it out toward the window to let it go. Click one to see its name.'; audio.sfx('pop'); return; }
   }
   const f = galPick(e);
   if (f) { drag = { f, x0: e.clientX, y0: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); audio.sfx('pop'); return; }
@@ -569,14 +607,25 @@ canvas.addEventListener('pointermove', e => {
   if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 6) drag.moved = true;
   if (drag.moved) {
     const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    galRay.setFromCamera(galNdc, gallery.camera); if (galRay.ray.intersectPlane(galPlane, galPt)) { gallery.tank.worldToLocal(galPt); gallery.hold(drag.f, galPt.x, galPt.y); } canvas.style.cursor = 'grabbing';
+    galRay.setFromCamera(galNdc, gallery.camera); if (galRay.ray.intersectPlane(galPlane, galPt)) { gallery.tank.worldToLocal(galPt); drag.out = gallery.inRelease(galPt.x, galPt.y); gallery.hold(drag.f, galPt.x, galPt.y, drag.out); }
+    relHint(drag.out && e); canvas.style.cursor = 'grabbing';
   }
 });
-const endDrag = () => { if (!drag) return; if (!drag.moved) showFishInfo(drag.f); gallery.release(drag.f); drag = null; canvas.style.cursor = ''; };
-canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+/** While a held fish is over the way out (lifted from the water toward the window): the window glows and a small caption follows the pointer. */
+function relHint(e) { const h = $('relHint'); gallery.glowTo(!!e); if (!e) { h.hidden = true; return; } const r = stage.getBoundingClientRect(); h.style.left = (e.clientX - r.left) + 'px'; h.style.top = (e.clientY - r.top) + 'px'; h.hidden = false; }
+/** A kept fish back to the lake from the cabin tank (dropped over the window, or the info card's link): a soft splash, it fades up and out, and the journal counts it freed. */
+function letGoFish(f) {
+  if (!f || f.leaving || !fishing.letGo(f.kind.id, f.nick)) return; hideFishInfo(); audio.sfx('splash');
+  gallery.fishMeshes().forEach(m => { const o = m.userData.fish; if (o.kind === f.kind && o !== f) o.count = Math.max(0, o.count - 1); });
+  gallery.letGo(f, () => { if (!gallery.fishCount()) { $('galNote').hidden = false; $('galNote').textContent = 'The tank is empty. Catch a fish and give it a name, and it will move in.'; } });
+  setTimeout(() => { if (scene_ !== 'gallery') return; const n = $('galNote'), was = n.textContent, said = `${friend()}: ${line(fk(), 'tankRelease')}`;   // captions are hidden in here: the friend's line shows in the note for a moment
+    audio.sfx('blip'); n.hidden = false; n.textContent = said; setTimeout(() => { if (n.textContent === said) n.textContent = gallery.fishCount() ? was : 'The tank is empty. Catch a fish and give it a name, and it will move in.'; }, 4200); }, 900);
+}
+const endDrag = () => { if (!drag) return; relHint(null); if (drag.moved && drag.out) { letGoFish(drag.f); if (!drag.f.leaving) gallery.release(drag.f); } else { if (!drag.moved) showFishInfo(drag.f); gallery.release(drag.f); } drag = null; canvas.style.cursor = ''; };
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', () => { if (drag) drag.out = false; endDrag(); });   // a cancelled drag never lets go
 $('mGallery').addEventListener('click', openGallery);
 $('galBack').addEventListener('click', () => { if (!$('fishInfo').hidden) hideFishInfo(); else if (gallery.view === 'tank') { gallery.setView('room'); hideFishInfo(); $('galNote').hidden = false; $('galNote').textContent = 'Click the tank for a closer look.'; } else closeGallery(); });
-$('fiClose').addEventListener('click', hideFishInfo);
+$('fiClose').addEventListener('click', hideFishInfo); $('fiFree').addEventListener('click', () => letGoFish(gallery.selected));
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && scene_ === 'gallery') { if (!$('fishInfo').hidden) hideFishInfo(); else if (gallery.view === 'tank') { gallery.setView('room'); $('galNote').hidden = false; $('galNote').textContent = 'Click the tank for a closer look.'; } else closeGallery(); } });
 
 /* ---------- reel-in challenge ---------- */
@@ -662,9 +711,10 @@ const HOT = {
   radio: { label: () => `Radio \u00b7 ${settings.radio === false || settings.muted || !settings.musicVol ? 'off' : trackName()}`, click: nextTrack,
     wheel: d => { settings.musicVol = clamp(Math.round((settings.musicVol - Math.sign(d) * .05) * 100) / 100, 0, 1); audio.applyVolumes(); saveSettings(settings); toast(`Radio volume ${Math.round(settings.musicVol * 100)}%`); updateNowPlaying(); } },
   bucket: { label: () => { const n = fishing.journal.reduce((a, e) => a + (KINDS.some(k => k.id === e.id) ? e.n : 0), 0); return n ? `Bucket \u00b7 ${n} fish` : 'Bucket \u00b7 empty'; }, click: () => openGallery() },
-  rod: { label: () => 'Put the rod down', on: () => !fishing.stowed, click: () => setStowed(true) },
+  rod: { label: () => 'Double-click to put the rod down', on: () => !fishing.stowed, dbl: true, click: () => setStowed(true) },   // dbl: a single click does nothing here (so a stray click while looking around can't put the rod away); two within 350ms, or a right-click, does
   pickup: { label: () => 'Pick up the rod', on: () => fishing.stowed, click: openTackle },
   bait: { label: () => 'Toss some bait', click: tossBait },
+  board: { label: () => 'Play chess', on: () => !fishing.bite, click: () => { if (fishing.bite) strike(); else goView('board'); } },   // a bite takes the click
 };
 let hot = null, look = null, lookDrag = null;   // look: last pointer position over the canvas, in -1..1
 const LOOK = { away: 150, board: 85, down: 30, up: 25 };   // how far the head can turn, degrees: board reaches past the friend to the campfire (FIRE in world.js)
@@ -732,25 +782,23 @@ $('sNew').addEventListener('click', () => { $('sNew').hidden = true; $('sNewAsk'
 $('sNewNo').addEventListener('click', () => { $('sNewAsk').hidden = true; $('sNew').hidden = false; $('sNew').focus(); });
 $('sNewYes').addEventListener('click', () => {
   if (scene_ === 'game') { closeSettings(); quitToTitle(true); }
-  else { ['liam', 'xiao'].forEach(clearTrip); $('sTrip').hidden = true; $('setClose').focus(); }
+  else { ['liam', 'xiao'].forEach(clearTrip); useLayout(); $('sTrip').hidden = true; $('setClose').focus(); }
 });
 const inTrip = () => scene_ === 'game' || (scene_ === 'gallery' && galleryFrom === 'game');
-addEventListener('pagehide', () => { if (inTrip()) saveTrip(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden && inTrip()) saveTrip(); });
+addEventListener('pagehide', () => { if (inTrip()) { settleCatch(); saveTrip(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden && inTrip()) { settleCatch(); saveTrip(); } });
 
 $('mSingle').addEventListener('click', () => { if (scene_ === 'title') { rig.selTarget = 1; setScene('select'); } });
 $('pickBack').addEventListener('click', () => { rig.selTarget = 0; setScene('title'); });
 $('pickLiam').addEventListener('click', () => startPick('liam'));
 $('pickXiao').addEventListener('click', () => startPick('xiao'));
-$('quitBtn').addEventListener('click', () => { if (!$('settings').hidden) closeSettings(); else if (scene_ === 'game' && !$('tackle').hidden) closeTackle(); else if (scene_ === 'game' && !$('catch').hidden) finishCatch(''); else quitToTitle(false); });
-$('panChip').addEventListener('click', () => {
-  if (view === 'fish') { if (fishing.bite) strike(); else goView('board'); }
-  else { if (fishing.bite) pendingStrike = true; goView('fish'); }
-});
-$('nib').addEventListener('click', () => { pendingStrike = true; goView('fish'); });
+$('quitBtn').addEventListener('click', () => { if (!$('settings').hidden) closeSettings(); else if (scene_ === 'game' && !$('tackle').hidden) closeTackle(); else quitToTitle(false); });
+$('panChip').addEventListener('click', () => { if (view === 'fish' && fishing.bite) strike(); });
+$('viewBtn').addEventListener('click', () => { if (view === 'fish') goView('board'); else if (goView('fish') && fishing.bite) pendingStrike = true; });
+$('nib').addEventListener('click', () => { if (rig.tween || performance.now() < viewLock) return; if (goView('fish')) pendingStrike = true; });
 $('hintBtn').addEventListener('click', askHint);
 $('undoBtn').addEventListener('click', takeBack);
-document.addEventListener('keydown', e => { if (e.metaKey || e.ctrlKey || e.altKey || scene_ !== 'game') return; if (e.key === '1') goView('fish'); if (e.key === '2') goView('board'); });
+document.addEventListener('keydown', e => { if (e.metaKey || e.ctrlKey || e.altKey || scene_ !== 'game' || e.target.tagName === 'INPUT' || overlayOpen()) return; if (e.key === '1') goView('fish'); if (e.key === '2') goView('board'); });
 document.addEventListener('keydown', e => { if (e.key === ' ' && scene_ === 'game' && view === 'fish' && !overlayOpen() && !['INPUT', 'BUTTON'].includes(e.target.tagName)) { e.preventDefault(); if (e.repeat) return; if (settings.challenge && fishing.canCast()) startWind('key'); else strike(); } });
 document.addEventListener('keyup', e => { if (e.key === ' ' && wind && wind.src === 'key') endWind(true); });
 
@@ -762,26 +810,34 @@ function pickSquare(e) {
   const hit = ray.intersectObjects(board.squares, false)[0]; return hit ? hit.object.userData.sq : null;
 }
 canvas.addEventListener('pointerdown', e => {
-  if (scene_ !== 'game') return;
+  if (scene_ !== 'game' || e.button) return;   // the right button is the rod's shortcut (contextmenu below)
   if (view === 'fish') {
     if (rig.tween || overlayOpen()) return;
-    lookFrom(e); pickHot(); lookDrag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); if (!hot) startWind('ptr');
+    lookFrom(e); if (!fishing.catchOpen) pickHot(); lookDrag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); if (!hot) startWind('ptr');
     return;
   }
   if (playable()) { const sq = pickSquare(e); if (sq) onSquare(sq); }
 });
+let lastTap = { key: null, t: 0 };
 const endLook = e => {
   if (!lookDrag) return; const d = lookDrag; lookDrag = null; stage.classList.remove('dragging');
   if (d.moved || e.type === 'pointercancel' || scene_ !== 'game' || view !== 'fish' || overlayOpen()) { endWind(false); return; }
-  if (hot) { endWind(false); audio.sfx('click'); HOT[hot.key].click(); } else if (wind && wind.src === 'ptr') endWind(true); else strike();   // a plain click
+  if (hot && !fishing.catchOpen && HOT[hot.key].dbl) {   // needs a second click (or tap) on the same thing
+    endWind(false); const n = performance.now(), again = lastTap.key === hot.key && n - lastTap.t < 350; lastTap = { key: hot.key, t: again ? 0 : n };
+    if (again) { audio.sfx('click'); HOT[hot.key].click(); } else if (fishing.bite) strike();   // only a bite is worth a click here; the rest waits for the second
+  } else if (hot && !fishing.catchOpen) { endWind(false); audio.sfx('click'); HOT[hot.key].click(); } else if (wind && wind.src === 'ptr') endWind(true); else strike();   // a plain click
 };
+canvas.addEventListener('contextmenu', e => {   // right-click on the rod puts it down; never the browser menu over the scene
+  e.preventDefault(); if (scene_ !== 'game' || view !== 'fish' || rig.tween || overlayOpen() || fishing.catchOpen) return;
+  lookFrom(e); pickHot(); if (hot && HOT[hot.key].dbl) { audio.sfx('click'); HOT[hot.key].click(); }
+});
 canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointercancel', endLook);
 canvas.addEventListener('pointermove', e => {
   if (lookDrag) {
     if (!lookDrag.moved && Math.hypot(e.clientX - lookDrag.x, e.clientY - lookDrag.y) > 6) { lookDrag.moved = true; endWind(false); stage.classList.add('dragging'); if (hot) setHot(null); }
     if (lookDrag.moved) { turnHead(e.clientX - lookDrag.x, e.clientY - lookDrag.y); lookDrag.x = e.clientX; lookDrag.y = e.clientY; return; }
   }
-  if (scene_ === 'game' && view === 'fish' && !rig.tween && !overlayOpen()) { lookFrom(e); pickHot(); } else if (hot) setHot(null);
+  if (scene_ === 'game' && view === 'fish' && !rig.tween && !overlayOpen()) { lookFrom(e); if (fishing.catchOpen) { if (hot) setHot(null); } else pickHot(); } else if (hot) setHot(null);
   if (!playable()) { if (st.hover) { st.hover = null; draw(); } return; }
   const sq = pickSquare(e); if (sq !== st.hover) { st.hover = sq; draw(); }
 });
@@ -798,6 +854,7 @@ function placePick() {
 /* ---------- loop ---------- */
 let last = performance.now(), lastTick = 0;
 function frame(now) {
+  if (hot && fishing.catchOpen) setHot(null);   // no stale hover label over the catch
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   if (now - lastTick > 1000) { lastTick = now; tickTalk(now); audio.setScene(dayNight.night, campfire.level); }
   fishing.night = dayNight.night; rig.step(now, dt); fishing.stepFish(dt, now); if (scene_ === 'game') fishing.stepRod(now); lakeUpdate(now); bait.update(now); world.update(now, camera, rig.u * (1 - rig.wide));
@@ -808,6 +865,6 @@ function frame(now) {
   if (scene_ === 'gallery') { gallery.update(now, dt, dayNight.night); renderer.render(gallery.scene, gallery.camera); } else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
-newGame(); rig.wide = 1; rig.side = 1; setScene('title');
+useLayout(loadTrip()?.layout); newGame(); rig.wide = 1; rig.side = 1; setScene('title');
 requestAnimationFrame(frame);
-window.__cu = { world, takeBack, askHint, msg, ask, newGame, fight, gallery, openGallery, audio, dayNight, campfire, settings, inks, playInk, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say, saveTrip, loadTrip, setFocus, setStowed, quitToTitle, idleMoment, ink };
+window.__cu = { world, takeBack, askHint, msg, ask, newGame, fight, gallery, openGallery, audio, dayNight, campfire, settings, inks, playInk, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say, saveTrip, loadTrip, useLayout, setFocus, setStowed, quitToTitle, idleMoment, ink };

@@ -9,7 +9,7 @@ export function fishSvgString(k) {
 /** Placeholder art faces LEFT in the old card; the aquarium wants RIGHT, so the texture flips it. */
 export function fishHtml(k) {
   const art = FISH_ART[k.id];
-  return art ? `<img src="${art}" alt="" style="width:130px;display:block">` : fishSvgString(k).replace('<svg ', '<svg aria-hidden="true" style="width:130px;display:block" ');
+  return art ? `<img src="${art}" alt="" style="width:130px;display:block" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,'+encodeURIComponent(${JSON.stringify(fishSvgString(k)).replace(/"/g,'&quot;')})">` : fishSvgString(k).replace('<svg ', '<svg aria-hidden="true" style="width:130px;display:block" ');
 }
 const cache = new Map();
 export function fishTexture(k) {

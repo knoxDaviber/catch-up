@@ -103,22 +103,37 @@ export function buildGallery() {
   const pmat = (t, op = 1) => { const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: op, alphaTest: .02, depthWrite: false, fog: false, side: THREE.DoubleSide }); tintMats.push(m); return m; };
   const sprite = (parent, t, x, z, h, mt) => { const w = h * t.image.width / t.image.height, m = new THREE.Mesh(PLANE, mt); m.scale.set(w, h, 1); m.position.set(x - w / 2, 0, z); parent.add(m); return m; };
   const slots = [], PEOPLE = ART.people;
-  const ARR = [[['liam_side', -.85], ['xiao_side', .85]], [['liam_back', -.65], ['xiao_back', .65]], [['liam_front', -.75], ['xiao_back', .65]], [['liam_front', -.75], ['xiao_side', .75]], [['liam_back', -.7], ['xiao_front', .7]]];
-  const setOp = (i, o) => { const s = slots[i]; if (!s) return; s.op = o; s.group.visible = o > .001; s.mats.forEach(m => { m.opacity = o; }); };
+  /* Placeholder pairs, one per activity (couch, phone, cards, kettle, window): [sprite, side] with side -1 left of the table, +1 right (by the kitchen). Each figure stands
+     on the floor beside the table, never in front of the tank: the first on a side starts EDGE m out from the centre and the next stands just beyond it, a little further back.
+     Standing activities use the standing sprites (falling back to the seated ones). A soft contact shadow sits under each. */
+  const ARR = [[['liam_side', -1], ['xiao_side', 1]], [['liam_front', -1], ['xiao_front', 1]], [['xiao_front', -1], ['liam_side', -1]], [['liam_stand_back', 1], ['xiao_stand_front', 1]], [['xiao_stand_back', -1], ['liam_stand_back', -1]]];
+  const EDGE = 1.3, shC = document.createElement('canvas'); shC.width = shC.height = 64; { const x = shC.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(.6, 'rgba(0,0,0,.45)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
+  const shTex = new THREE.CanvasTexture(shC), shGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const shadow = (s, x, z, w) => { const m = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, opacity: s.op * .4, depthWrite: false, fog: false })); m.position.set(x, .004, z); m.scale.set(w * .85, 1, .45); m.renderOrder = -1; s.group.add(m); s.sh.push(m.material); };
+  const setOp = (i, o) => { const s = slots[i]; if (!s) return; s.op = o; s.group.visible = o > .001; s.mats.forEach(m => { m.opacity = o; }); s.sh.forEach(m => { m.opacity = o * .4; }); };
   (ART.gallery.activities || []).forEach((act, i) => {
-    const s = { group: new THREE.Group(), mats: [], op: i === P.cur ? 1 : 0 }; s.group.visible = s.op > 0; s.group.position.set(-1.5, 0, -.9); paint.add(s.group); slots.push(s);
+    const s = { group: new THREE.Group(), mats: [], sh: [], op: i === P.cur ? 1 : 0 }; s.group.visible = s.op > 0; paint.add(s.group); slots.push(s);
     loadTex(act && act.src).then(async at => {
-      if (at) { s.mats.push(pmat(at, s.op)); sprite(s.group, at, 0, 0, 1.9, s.mats[0]); }
-      else for (const [k, x] of ARR[i % ARR.length]) { const t = await loadTex(PEOPLE[k]); if (!t) continue; const mt = pmat(t, s.op); s.mats.push(mt); sprite(s.group, t, x * .75, 0, 1.45, mt); }
+      if (at) { const w = 1.9 * at.image.width / at.image.height; s.mats.push(pmat(at, s.op)); sprite(s.group, at, -EDGE - w / 2, -1.5, 1.9, s.mats[0]); shadow(s, -EDGE - w / 2, -1.5, w); }   // a whole scene: left of the table
+      else { const off = { [-1]: EDGE, 1: EDGE };
+        for (const [k, side] of ARR[i % ARR.length]) { let t = await loadTex(PEOPLE[k]), h = 1.72; if (!t) { t = await loadTex(PEOPLE[k.replace('stand_', '')]); h = 1.45; } if (!t) continue; if (!k.includes('stand')) h = 1.45;
+          const w = h * t.image.width / t.image.height, x = side * (off[side] + w / 2), z = off[side] > EDGE ? -1.7 : -1.5, mt = pmat(t, s.op); s.mats.push(mt); sprite(s.group, t, x, z, h, mt); shadow(s, x, z, w); off[side] += w * .85; } }
       if (s.mats.length) { P.on = true; arm.visible = false; }
     });
   });
   const PH = 2 * Math.tan(camera.fov * Math.PI / 360) * (2.8 + 4.1) * 1.04;   // fills the view from the resting camera (z 2.8); update() scales it with the camera's distance so the dolly never shows an edge
   loadTex(ART.gallery.backdrop).then(t => {
     if (!t) return;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(PH * t.image.width / t.image.height, PH), pmat(t)); m.material.transparent = false; m.material.depthWrite = true; m.position.set(0, 1.2, -4.1); paint.add(m); m.renderOrder = -1; P.plate = m;
+    const pw = PH * t.image.width / t.image.height, m = new THREE.Mesh(new THREE.PlaneGeometry(pw, PH), pmat(t)); m.material.transparent = false; m.material.depthWrite = true; m.position.set(0, 1.2, -4.1); paint.add(m); m.renderOrder = -1; P.plate = m;
+    glow.position.set((.38 - .5) * pw, (.636 - .5) * PH, .02); glow.scale.set(.42 * pw, .42 * PH, 1); m.add(glow);   // over the painted window (glass at u .22-.54, v .49-.78)
     shell.forEach(o => { o.visible = false; }); floorBits.forEach(o => { o.visible = false; }); stool.visible = false;
   });
+
+  /* Letting a fish go: lift it out of the water toward the window (RELEASE, tank-local: above the surface, over the window's side) and let go there. The window glows
+     faintly while a fish is held over it (G.glowTo); G.letGo fades the fish up out of the water with a ring on the surface, then removes it. */
+  const RELEASE = { y: .9, x0: -1, x1: .15 }, glowC = document.createElement('canvas'); glowC.width = glowC.height = 64; { const x = glowC.getContext('2d'), g = x.createRadialGradient(32, 32, 4, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(.7, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowC), color: 0xfff0c8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); let glowGoal = 0;
+  const ringGeo = new THREE.RingGeometry(.9, 1, 32).rotateX(-Math.PI / 2), rings = [];
 
   // fish
   const fishGroup = new THREE.Group(); tank.add(fishGroup);
@@ -146,7 +161,11 @@ export function buildGallery() {
     P.cur = Math.floor(Math.random() * Math.max(1, slots.length)); P.next = -1; P.timer = 11; slots.forEach((s, i) => setOp(i, i === P.cur ? 1 : 0)); };
   G.setView = v => { G.view = v; G.vt0 = performance.now(); };
   /** hold a fish at a point in tank-local space (while dragging) */
-  G.hold = (f, x, y) => { f.held = true; f.x = Math.max(-BX, Math.min(BX, x)); f.y = Math.max(BY0, Math.min(BY1, y)); f.tx = f.x; f.ty = f.y; };
+  /** inRelease(x, y): tank-local point over the way out. hold(): lift (over the way out) lets the fish come up out of the water. */
+  G.inRelease = (x, y) => y > RELEASE.y && x > RELEASE.x0 && x < RELEASE.x1;
+  G.glowTo = on => { glowGoal = on ? 1 : 0; };
+  G.hold = (f, x, y, lift) => { f.held = true; f.x = Math.max(-BX, Math.min(BX, x)); f.y = Math.max(BY0, Math.min(lift ? TH - .02 : BY1, y)); f.tx = f.x; f.ty = f.y; };
+  G.letGo = (f, done) => { f.held = false; f.leaving = performance.now(); f.done = done; const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xeafcff, transparent: true, opacity: .7, depthWrite: false })); m.position.set(f.x, .08 + TH * .8 + .005, f.z); m.renderOrder = 7; tank.add(m); rings.push({ m, t0: f.leaving }); };
   G.release = f => { f.held = false; f.retarget = 0; };
   G.bounds = { BX, BY0, BY1, BZ };
 
@@ -173,8 +192,13 @@ export function buildGallery() {
     plants.forEach((m, i) => { m.rotation.z = Math.sin(t * 1.3 + i) * .12; });
     for (let i = 0; i < BN; i++) { const s = (bseed[i] + t * .12 * (.6 + bseed[(i + 3) % BN])) % 1; bpos[i * 3] = .1 + Math.sin(s * 12 + i) * .04; bpos[i * 3 + 1] = .2 + s * (TH * .8 - .1); bpos[i * 3 + 2] = -.2; }
     bg.attributes.position.needsUpdate = true;
+    glow.material.opacity += (glowGoal * .55 * (.85 + .15 * Math.sin(t * 4)) - glow.material.opacity) * Math.min(1, dt * 6);
+    for (let i = rings.length; i--;) { const r = rings[i], k = (now - r.t0) / 1400; if (k >= 1) { tank.remove(r.m); r.m.material.dispose(); rings.splice(i, 1); continue; } r.m.scale.setScalar(.05 + k * .45); r.m.material.opacity = .7 * (1 - k); }
+    for (let i = fish.length; i--;) { const f = fish[i]; if (!f.leaving) continue; const k = (now - f.leaving) / 1100;   // the farewell: up and out, fading
+      if (k >= 1) { fishGroup.remove(f.mesh); f.mesh.material.dispose(); fish.splice(i, 1); if (G.selected === f) G.selected = null; f.done && f.done(); continue; }
+      f.y += dt * .35; f.mesh.material.opacity = 1 - k * k; }
     fish.forEach(f => {
-      if (!f.held) {
+      if (!f.held && !f.leaving) {
         if (now > f.retarget) { f.tx = (Math.random() * 2 - 1) * BX; f.ty = BY0 + Math.random() * (BY1 - BY0); f.tz = (Math.random() * 2 - 1) * BZ; f.retarget = now + 3500 + Math.random() * 4500; }
         const dx = f.tx - f.x, dy = f.ty - f.y, dz = f.tz - f.z, d = Math.hypot(dx, dy, dz) || 1, v = Math.min(f.sp, d);
         f.x += dx / d * v * dt * 3; f.y += dy / d * v * dt * 2; f.z += dz / d * v * dt * 2;

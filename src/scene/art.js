@@ -12,10 +12,10 @@ export function loadTex(path) {
 }
 
 /** A shared unlit, fogged material for a painted texture. It follows the day/night tint (setArtTint), times `shade` (a hex colour: darker or bluer for depth).
- *  Default: alpha-tested so it sorts like an opaque mesh. */
-export function artMat(t, opts = {}, shade = 0xffffff) {
-  const key = t.uuid + JSON.stringify(opts) + shade;
-  if (!mats.has(key)) { const m = new THREE.MeshBasicMaterial({ map: t, alphaTest: .4, side: THREE.DoubleSide, ...opts }); m.color.set(shade); mats.set(key, m); tinted.push([m, new THREE.Color(shade)]); }
+ *  glow (0..1): a light source (lantern, firefly jar) that turns warm and bright after dark instead of darkening. Default: alpha-tested so it sorts like an opaque mesh. */
+export function artMat(t, opts = {}, shade = 0xffffff, glow = 0) {
+  const key = t.uuid + JSON.stringify(opts) + shade + glow;
+  if (!mats.has(key)) { const m = new THREE.MeshBasicMaterial({ map: t, alphaTest: .4, side: THREE.DoubleSide, ...opts }); m.color.set(shade); mats.set(key, m); tinted.push([m, new THREE.Color(shade), glow]); }
   return mats.get(key);
 }
 
@@ -24,17 +24,20 @@ export const PLANE = new THREE.PlaneGeometry(1, 1).translate(.5, .5, 0);
 
 /** An upright painted plane, bottom-anchored at (x, y, z) in world space; h is its height in metres and ax the fraction of its width over the anchor.
  *  yaw null turns it to face the camera each frame (about Y only); a number fixes it. shade darkens it (see artMat), flip mirrors it. onLoad(mesh) runs once the art is in. */
-export function cutout(parent, path, x, z, h, { y = 0, ax = .5, yaw = null, dz = 0, shade, flip = false, onLoad } = {}) {
+export function cutout(parent, path, x, z, h, { y = 0, ax = .5, yaw = null, dz = 0, shade, flip = false, glow = 0, onLoad } = {}) {
   const pivot = new THREE.Group(); pivot.position.set(x, y, z); parent.add(pivot);
-  loadTex(path).then(t => { if (!t) return; const w = h * t.image.width / t.image.height, m = new THREE.Mesh(PLANE, artMat(t, {}, shade)); m.scale.set(flip ? -w : w, h, 1); m.position.set(flip ? ax * w : -ax * w, 0, dz); pivot.add(m);
+  loadTex(path).then(t => { if (!t) return; const w = h * t.image.width / t.image.height, m = new THREE.Mesh(PLANE, artMat(t, {}, shade, glow)); m.scale.set(flip ? -w : w, h, 1); m.position.set(flip ? ax * w : -ax * w, 0, dz); pivot.add(m);
     if (yaw === null) bills.push(pivot); else pivot.rotation.y = yaw; onLoad && onLoad(m); });
   return pivot;
 }
 
 export const faceCamera = (o, cam) => { o.rotation.y = Math.atan2(cam.position.x - o.position.x, cam.position.z - o.position.z); };
-export function updateArt(cam) { bills.forEach(o => faceCamera(o, cam)); }
-/** Every painted material takes this colour, so the art darkens and warms with the light like the 3D world. */
-export function setArtTint(c) { tinted.forEach(([m, k]) => m.color.copy(c).multiply(k)); }
+const attached = o => { while (o.parent) o = o.parent; return !!o.isScene; };   // a pivot inside a detached layout group still has a parent
+export function updateArt(cam) { for (let i = bills.length; i--;) if (attached(bills[i])) faceCamera(bills[i], cam); else bills.splice(i, 1); }   // removed cutouts (a relaid layout) drop out
+/** Every painted material takes this colour, so the art darkens and warms with the light like the 3D world; glowing ones lift toward warm light by `night` (0..1, also kept in NIGHT.value). */
+export const NIGHT = { value: 0 };
+const WARM = new THREE.Color(1.25, 1.05, .78);
+export function setArtTint(c, night = 0) { NIGHT.value = night; tinted.forEach(([m, k, g]) => { m.color.copy(c); if (g) m.color.lerp(WARM, night * g); m.color.multiply(k); }); }
 
 /** Wind for swaying plants: WIND.value is a clock in seconds (world.update runs it, slower for reduced motion). sway(m, amp) bends a cutout material's top
  *  sideways by up to amp of its width, each plant on its own phase from where it stands. Works on plain and instanced meshes. */

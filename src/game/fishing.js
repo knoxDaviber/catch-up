@@ -5,14 +5,17 @@
    After a catch the line is out of the water until you cast again, which is also how you stop fishing.
    Phases: out -> cast -> wait -> approach -> tease -> bite -> reel -> catch -> out. */
 // len: size (x100 = typical cm), w: how common, diff: how hard it fights (0..1), style: how it fights (see fight.js),
-// when: 'night' or 'day' if it bites more then. Mostly what you'd pull out of an Australian city lake or river.
+// when: 'night' or 'day' if it bites more then. Mostly what you'd pull out of an Australian city lake or river,
+// plus a few dumped pets (guppy, koi) and one gentle oddity (the lamplighter).
 export const KINDS = [
+  { id: 'guppy', name: 'Guppy', len: .05, w: 3, diff: .02, style: 'darter', col: '#C9B7E0', belly: '#F4D9C4', when: 'day' },
   { id: 'mosquitofish', name: 'Mosquitofish', len: .08, w: 14, diff: .02, style: 'darter', col: '#A8A58E', belly: '#E9E6D2' },
   { id: 'gudgeon', name: 'Gudgeon', len: .1, w: 14, diff: .05, style: 'darter', col: '#8C7A5E', belly: '#E3D6B8' },
   { id: 'rainbowfish', name: 'Rainbowfish', len: .1, w: 9, diff: .06, style: 'darter', col: '#6FA3C8', belly: '#F2B15E', when: 'day' },
   { id: 'goldfish', name: 'Goldfish', len: .15, w: 9, diff: .05, style: 'steady', col: '#E8913A', belly: '#F6C778' },
   { id: 'spangled_perch', name: 'Spangled perch', len: .25, w: 9, diff: .25, style: 'darter', col: '#B3A26E', belly: '#EDE3B8' },
   { id: 'perch', name: 'Redfin perch', len: .3, w: 18, diff: .22, style: 'darter', col: '#7C9A5A', belly: '#E3D9A0' },
+  { id: 'lamplighter', name: 'Lamplighter', len: .3, w: .6, diff: .6, style: 'diver', col: '#4E4A5C', belly: '#D9D2C4', when: 'night' },
   { id: 'bony_bream', name: 'Bony bream', len: .3, w: 12, diff: .15, style: 'steady', col: '#B9C3C6', belly: '#EEF1F0' },
   { id: 'silver_perch', name: 'Silver perch', len: .38, w: 10, diff: .32, style: 'darter', col: '#A9B4B8', belly: '#E4E9EA' },
   { id: 'mullet', name: 'Sea mullet', len: .42, w: 7, diff: .4, style: 'jumper', col: '#8E9AA0', belly: '#E2E6E4', when: 'day' },
@@ -20,6 +23,7 @@ export const KINDS = [
   { id: 'bass', name: 'Australian bass', len: .45, w: 7, diff: .55, style: 'jumper', col: '#7E8460', belly: '#D9D3AE', when: 'night' },
   { id: 'golden_perch', name: 'Golden perch', len: .5, w: 7, diff: .48, style: 'runner', col: '#B59A42', belly: '#F0D879' },
   { id: 'trout', name: 'Rainbow trout', len: .5, w: 8, diff: .5, style: 'jumper', col: '#A5A88A', belly: '#E9C7B0', when: 'day' },
+  { id: 'koi', name: 'Koi', len: .55, w: 2, diff: .5, style: 'diver', col: '#F2EDE4', belly: '#E8874A', when: 'day' },
   { id: 'brown_trout', name: 'Brown trout', len: .6, w: 4, diff: .62, style: 'jumper', col: '#8A6E4A', belly: '#E8CFA0' },
   { id: 'carp', name: 'Carp', len: .72, w: 11, diff: .55, style: 'diver', col: '#B98A4E', belly: '#E6CF9A' },
   { id: 'eel', name: 'Shortfin eel', len: .85, w: 4, diff: .72, style: 'diver', col: '#5A5640', belly: '#B8B08A', when: 'night' },
@@ -213,6 +217,9 @@ export function createFishing(hooks) {
     F.caught = { kind: k, size: Math.round(k.len * 100 * (.85 + rnd() * .3)), before: e ? e.n + (e.freed || 0) : 0, names };
     F.splashT = now; F.ripple(R.cur.x, R.cur.z, .1, 1.2, 1100, now); sfx('catch'); hooks.onCatch(F.caught);
   }
+  /** A kept fish goes from the cabin tank back to the lake: one fewer kept (n), one more freed, its nickname (if it had one) gone. False if there was none to let go. */
+  F.letGo = (id, nick) => { const e = F.journal.find(j => j.id === id); if (!e || !(e.n > 0)) return false; e.n--; e.freed = (e.freed || 0) + 1;
+    e.nicks = Array.isArray(e.nicks) ? e.nicks : []; const i = nick ? e.nicks.indexOf(nick) : -1; if (i >= 0) e.nicks.splice(i, 1); if (e.nicks.length > e.n) e.nicks.length = e.n; saveJournal(); return true; };
   /** Keep the fish (it goes in the bucket and the aquarium), optionally named, or let it go: it still counts as caught. */
   F.finishCatch = (nick, release) => {
     if (!F.caught) return;

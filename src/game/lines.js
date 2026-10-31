@@ -26,6 +26,7 @@ export const LINES = {
     small: ["Ha. That one's tiny.", 'Cute. Throw it back?'], normal: ['Nice one.', 'Not bad at all.'], big: ['Whoa. Look at the size of that.', "Okay. That's a keeper."],
     nick: ['"{n}". Suits it.', 'Welcome to the family, {n}.'],
     release: ['Good. Let it grow.', 'Off you go.', 'Kind of you.'],
+    tankRelease: ['Back to the lake. Good.', 'It looked ready to go.', 'Fair. The tank was getting crowded.'],   // a fish let go from the cabin tank
     challengeAsk: ["Want more of a challenge? They come in too easy.", "That was easy. Want them to fight back?"],
     challengeOn: ["Good. Keep it in the light.", "Right. Don't let them get ahead of you."],
     challengeKeep: ["Fair. It's a lake, not a gym.", "Mm. Easy's fine."],
@@ -71,6 +72,7 @@ export const LINES = {
     small: ["Ha! That one's a baby.", 'Aww. Throw it back?'], normal: ['Nice one, mate.', 'Look at that. Dinner.'], big: ["Whoa! That's a unit!", 'Get in! That one has seen things.'],
     nick: ['"{n}"! Perfect.', 'Welcome to the family, {n}.'],
     release: ['Aww, go on then, little mate.', 'Catch and release. Very noble.', "Off you pop. Tell your mates about us."],
+    tankRelease: ["Aww, back home. Bit of a holiday in the cabin, then off it goes. Lucky thing.", "Go on, mate. Tell the others the tank's alright, honestly.", 'Ooh, freedom. Wave goodbye. Does it wave? It sort of waved.'],
     challengeAsk: ["Bit easy, that. Want more of a challenge, mate?", "Reckon you could handle a fighter? Want more of a challenge?"],
     challengeOn: ["That's the spirit! Keep it in the light.", "Get in. Now they'll fight back."],
     challengeKeep: ["Fair enough. We're here to relax.", "No worries. Lazy fishing's the best fishing."],

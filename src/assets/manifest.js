@@ -48,16 +48,20 @@ export const SKY_ART = { sun: null, moon: null };   // e.g. 'assets/art/sun.png'
 
 export const FISH_ART = {
   // one entry per fish id in src/game/fishing.js (KINDS); null = drawn placeholder in the fish's colours
-  mosquitofish: null, gudgeon: null, rainbowfish: null, goldfish: null, spangled_perch: null, perch: null,
-  bony_bream: null, silver_perch: null, mullet: null, tench: null, bass: null, golden_perch: null,
-  trout: null, brown_trout: null, carp: null, eel: null, catfish: null, murray_cod: null,
+  // made from the author's pictures by tools/art-jobs.json (the jobs whose out starts with ../fish/)
+  guppy: 'assets/fish/guppy.png', mosquitofish: 'assets/fish/mosquitofish.png', gudgeon: 'assets/fish/gudgeon.png', rainbowfish: 'assets/fish/rainbowfish.png', goldfish: 'assets/fish/goldfish.png',
+  spangled_perch: 'assets/fish/spangled_perch.png', perch: 'assets/fish/perch.png', lamplighter: 'assets/fish/lamplighter.png', bony_bream: 'assets/fish/bony_bream.png', silver_perch: 'assets/fish/silver_perch.png',
+  mullet: 'assets/fish/mullet.png', tench: null, bass: null, golden_perch: 'assets/fish/golden_perch.png', koi: 'assets/fish/koi.png', trout: 'assets/fish/trout.png', brown_trout: null,
+  carp: 'assets/fish/carp.png', eel: 'assets/fish/eel.png', catfish: 'assets/fish/catfish.png', murray_cod: 'assets/fish/murray_cod.png',
 };
 
 const A = 'assets/art/', N = (k, n) => Array.from({ length: n }, (_, i) => A + `scatter/${k}_${i + 1}.png`);
 export const ART = {
   // seated in their camp chair, faceless, transparent. Side views: Liam faces right, Xiao faces left.
   people: { liam_side: A + 'people/liam_side.png', liam_front: A + 'people/liam_front.png', liam_back: A + 'people/liam_back.png',
-    xiao_side: A + 'people/xiao_side.png', xiao_front: A + 'people/xiao_front.png', xiao_back: A + 'people/xiao_back.png' },
+    xiao_side: A + 'people/xiao_side.png', xiao_front: A + 'people/xiao_front.png', xiao_back: A + 'people/xiao_back.png',
+    // standing, for the cabin's standing activities (kettle, window)
+    liam_stand_front: A + 'people/liam_stand_front.png', liam_stand_back: A + 'people/liam_stand_back.png', xiao_stand_front: A + 'people/xiao_stand_front.png', xiao_stand_back: A + 'people/xiao_stand_back.png' },
   // far: far shore and hills, transparent sky, cut just below the waterline. Skies: day/night tinting is done in code.
   plates: { far: A + 'plates/far.png', sky_day: A + 'plates/sky_day.jpg', sky_night: A + 'plates/sky_night.jpg' },
   // forest tree-line strips (transparent, wide) wrapped round the land side in three depth bands: near crisp, far hazier. Empty lists keep the drawn canopy bands.
@@ -65,11 +69,15 @@ export const ART = {
   clouds: [A + 'clouds/cumulus_a.png', A + 'clouds/cumulus_b.png'],   // painted cumulus (blue sky keyed out) that drift in place of the drawn cumulus
   cutouts: { tree_gum: A + 'cutouts/tree_gum.png', tree_whitegum: A + 'cutouts/tree_whitegum.png', tree_paperbark: A + 'cutouts/tree_paperbark.png', tree_pine: A + 'cutouts/tree_pine.png',
     wattle: A + 'cutouts/wattle.png', reeds: A + 'cutouts/reeds.png', cabin: A + 'cutouts/cabin.png', tent: A + 'cutouts/tent.png', jetty: A + 'cutouts/jetty.png',
-    clearing: A + 'cutouts/clearing.png', path_entry: A + 'cutouts/path_entry.png' },   // ground-level scenery framing where the path leaves the forest
-  props: { radio: A + 'props/radio.png', bucket: A + 'props/bucket.png', crate: A + 'props/crate.png', chair: A + 'props/chair.png', cooler: A + 'props/cooler.png', bait: A + 'props/bait.png' },   // chair: only for an empty chair (none yet)
+    clearing: A + 'cutouts/clearing.png', path_entry: A + 'cutouts/path_entry.png',   // ground-level scenery framing where the path leaves the forest
+    boat: A + 'cutouts/boat.png', lily_1: A + 'cutouts/lily_1.png', lily_2: A + 'cutouts/lily_2.png', log: A + 'cutouts/log.png', stump: A + 'cutouts/stump.png' },   // the trip's layout pieces (world.js setLayout): rowboat, lily pads, fallen log, stump
+  props: { radio: A + 'props/radio.png', bucket: A + 'props/bucket.png', crate: A + 'props/crate.png', chair: A + 'props/chair.png', cooler: A + 'props/cooler.png', bait: A + 'props/bait.png',   // chair: only for an empty chair (none yet)
+    lantern: A + 'props/lantern.png', firefly_jar: A + 'props/firefly_jar.png', fire_ring: A + 'props/fire_ring.png',   // lantern and jar glow at night; the stone ring lies under the campfire
+    cairn: A + 'props/cairn.png', blanket: A + 'props/blanket.png', bedroll: A + 'props/bedroll.png', backpack: A + 'props/backpack.png' },   // optional bits of camp, placed per trip
+  critters: { dragonfly: A + 'critters/dragonfly.png' },   // lake_life: a daytime dragonfly over the shallows
   // gallery: painted cabin interior plate (null = the 3D room), plus indoor activity scenes of Liam and Xiao (transparent PNGs, art/gallery/<id>.png). src null = a placeholder pair made from the people sprites.
   gallery: { backdrop: A + 'gallery/interior.jpg', activities: [{ id: 'couch', src: null }, { id: 'phone', src: null }, { id: 'cards', src: null }, { id: 'kettle', src: null }, { id: 'window', src: null }] },
   // ground scatter (transparent, sliced from one sheet): rocks, pebbles and grass dotted along the shore, the path and the feet of trees and buildings. An empty list skips that kind.
-  scatter: { boulder: N('boulder', 4), rock: N('rock', 6), pebble: N('pebble', 18), tuft: N('tuft', 6), clump: N('clump', 3) },
+  scatter: { boulder: N('boulder', 4), rock: N('rock', 6), pebble: N('pebble', 18), tuft: N('tuft', 6), clump: N('clump', 3), bush: N('bush', 4), flowers: N('flowers', 4) },
   ground: { grass: A + 'ground/grass.jpg', path: A + 'ground/path.jpg', water: A + 'ground/water.jpg' },   // tileable; water tiles the lake under the day/night lake colour
 };

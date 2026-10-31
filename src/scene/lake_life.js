@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { bobberPos, rodTip } from '../game/fishing.js';
 import { SEAT_X } from './world.js';
 import { cue } from '../audio/audio.js';
+import { ART } from '../assets/manifest.js';
+import { loadTex } from './art.js';
 
 /** Draws the fishing state in the scene: fish shadows, ripples, floats and lines. */
 export function buildLakeLife(scene, F, getMine, getNight = () => 0) {
@@ -31,12 +33,13 @@ export function buildLakeLife(scene, F, getMine, getNight = () => 0) {
   const birdSh = new THREE.Shape(); birdSh.moveTo(-1, .25); birdSh.quadraticCurveTo(-.5, .55, 0, .06); birdSh.quadraticCurveTo(.5, .55, 1, .25); birdSh.quadraticCurveTo(.5, .3, 0, -.12); birdSh.quadraticCurveTo(-.5, .3, -1, .25);
   const possumSh = new THREE.Shape(); possumSh.moveTo(.32, .02); possumSh.bezierCurveTo(.34, .12, .22, .2, .1, .2); possumSh.bezierCurveTo(-.08, .24, -.22, .2, -.28, .1); possumSh.bezierCurveTo(-.4, .08, -.5, .16, -.62, .08); possumSh.bezierCurveTo(-.5, .0, -.4, .02, -.28, .0); possumSh.lineTo(-.2, 0); possumSh.lineTo(-.18, -.1); possumSh.lineTo(-.1, -.1); possumSh.lineTo(-.08, 0); possumSh.lineTo(.12, 0); possumSh.lineTo(.14, -.1); possumSh.lineTo(.22, -.1); possumSh.lineTo(.22, 0); possumSh.lineTo(.32, .02);
   const wrenSh = new THREE.Shape(); wrenSh.moveTo(.1, .0); wrenSh.bezierCurveTo(.1, .08, .06, .14, .0, .14); wrenSh.bezierCurveTo(-.05, .14, -.08, .1, -.1, .05); wrenSh.lineTo(-.24, .12); wrenSh.lineTo(-.14, -.02); wrenSh.bezierCurveTo(-.1, -.1, .05, -.1, .1, 0); wrenSh.lineTo(.18, .02);
-  let nextAt = performance.now() + rnd(15000, 35000), cr = null;
+  let nextAt = performance.now() + rnd(15000, 35000), cr = null, dragonT = null;
+  loadTex(ART.critters && ART.critters.dragonfly).then(t => { dragonT = t; });   // the dragonfly is painted art only
   let ringAt = performance.now() + rnd(4000, 9000);   // now and then a slow, faint ring spreads somewhere out on the lake, clear of the floats
   const clearCr = () => { if (cr) { cr.group.removeFromParent(); cr.group.traverse(o => { if (o.material) o.material.dispose(); if (o.geometry && o.geometry !== fishGeo) o.geometry.dispose(); }); cr = null; } };
   function spawn(now, night) {
     const day = night < .3, dusk = night >= .3 && night < .8, g = new THREE.Group(); scene.add(g);
-    const kind = day ? pick(['flock', 'flock', 'wren', 'fish', 'fish']) : dusk ? pick(['ducks', 'ducks', 'fish', 'fish', 'flock']) : pick(['possum', 'possum', 'fish']);
+    const kind = day ? pick(['flock', 'flock', 'wren', 'fish', 'fish', ...(dragonT ? ['dragonfly', 'dragonfly'] : [])]) : dusk ? pick(['ducks', 'ducks', 'fish', 'fish', 'flock']) : pick(['possum', 'possum', 'fish']);
     const dir = Math.random() < .5 ? 1 : -1, c = { kind, group: g, t0: now, dir, parts: [], done: false, cued: 0 };
     if (kind === 'flock' || kind === 'ducks') {
       const n = kind === 'ducks' ? 2 : pick([1, 1, 2, 3, 5]), duck = kind === 'ducks', y0 = duck ? rnd(.9, 1.4) : rnd(14, 26), z = duck ? rnd(-46, -34) : -90, sc = duck ? .55 : 2.2;
@@ -46,6 +49,10 @@ export function buildLakeLife(scene, F, getMine, getNight = () => 0) {
     } else if (kind === 'fish') {
       const x = rnd(5, 24) * (Math.random() < .5 ? -1 : 1), z = rnd(-34, -17); c.x = x; c.z = z; c.dur = 900; c.pan = x / 26; c.h = rnd(.6, 1.0);
       const m = flat(sh, night > .5 ? 0xb4c6dc : 0xe4eef2, .8, false); m.scale.set(.5, .5, 1); g.add(m); c.parts.push({ m }); cue('fishjump', c.pan); c.splashed = false;
+    } else if (kind === 'dragonfly') {   // darts and hovers low over the shallows off one side, never out in front of the floats
+      const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: dragonT, transparent: true, alphaTest: .05, depthWrite: false })), w = .5;   // larger than life, so it reads from the chairs
+      m.scale.set(w, w * dragonT.image.height / dragonT.image.width, 1); g.add(m); c.parts.push({ m, w });
+      c.dur = rnd(12000, 18000); c.p = new THREE.Vector3(dir * 12, .6, -5.6); c.to = c.p.clone(); c.next = 0;
     } else if (kind === 'possum') {
       c.z = rnd(-5.4, -4.6); c.dur = 22000; c.x0 = -dir * 8; c.x1 = dir * 8; const m = flat(possumSh, 0x242a38, .85, false); m.scale.set(dir, 1, 1); g.add(m); c.parts.push({ m }); c.calls = [.3, .7];
     } else {
@@ -65,6 +72,12 @@ export function buildLakeLife(scene, F, getMine, getNight = () => 0) {
       m.position.set(c.x + c.dir * (u - .5) * 1.4, .08 + y, c.z); m.rotation.y = c.dir < 0 ? Math.PI : 0; m.rotation.z = Math.atan2(vy, 1.4);
       m.visible = u > .02;
       if (!c.splashed && p > .92) { c.splashed = true; F.ripple(m.position.x, c.z, .1, 1.1, 1300, now); F.ripple(m.position.x, c.z, .05, .6, 900, now + 150); }
+    } else if (k === 'dragonfly') {
+      const q = c.parts[0], dt = Math.min(.1, (now - (c.last || now)) / 1000); c.last = now;
+      if (p >= 1) { clearCr(); nextAt = now + rnd(30000, 90000); return; }
+      if (now > c.next) { c.next = now + rnd(500, 1600); if (p > .88) c.to.set(c.dir * 15, 2.2, -6); else c.to.set(c.dir * rnd(3.4, 8), rnd(.3, .65), rnd(-5.6, -4.5)); }
+      const dx = c.to.x - c.p.x; c.p.lerp(c.to, Math.min(1, dt * 5)); if (Math.abs(dx) > .05) q.m.scale.x = (dx > 0 ? -1 : 1) * q.w;   // the art faces left
+      q.m.position.set(c.p.x + Math.sin(now / 90) * .01, c.p.y + Math.sin(now / 130) * .015, c.p.z);
     } else {
       const m = c.parts[0].m, wren = k === 'wren', pause = Math.sin(now / 2300 + c.t0) > .55, dt = Math.min(.1, (now - (c.last || now)) / 1000); c.last = now;
       c.px = (c.px ?? c.x0) + (pause ? 0 : (c.x1 - c.x0) / c.dur * 1000 * dt);

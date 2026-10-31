@@ -24,6 +24,7 @@
     <span class="tag" id="viewTag"></span>
     <div class="caption" id="caption" aria-live="polite"><b id="capWho"></b><span id="capText"></span></div>
     <button class="chip" id="panChip" type="button"></button>
+    <button class="pan" id="viewBtn" type="button" hidden><span class="pchev" id="viewChev" aria-hidden="true"></span><span class="ptxt" id="viewTxt" aria-hidden="true"></span></button>
     <div id="intro">
       <div class="logo"><h1>Catch Up</h1><p>Cozy chess by the fishing hole</p></div>
       <nav class="menu" aria-label="Main menu">
@@ -38,11 +39,12 @@
       <button class="pk" id="pickXiao" type="button" disabled aria-label="Xiao, coming later">Xiao <small>&middot; coming later</small></button>
       <button class="mbtn pback" id="pickBack" type="button">Back</button>
     </div>
-    <div class="catch" id="catch" role="dialog" aria-labelledby="catchTitle" hidden>
-      <div id="catchFish"></div><h3 id="catchTitle"></h3><p id="catchMeta"></p>
-      <div class="names" id="catchNames" role="group" aria-label="Suggested names"></div>
-      <form id="nameForm"><input id="nameIn" type="text" maxlength="16" placeholder="Or type a name" aria-label="Fish name" autocomplete="off"><button class="skip" type="submit">Name it</button></form>
-      <div class="names"><button class="skip" id="catchSkip" type="button">Keep it as it is</button><button class="skip" id="catchRelease" type="button">Let it go</button></div>
+    <div class="catchfx" id="catch" role="group" aria-label="Your catch. Pick a name to keep it, or let the ring run out to let it go." hidden>
+      <div class="cglow"></div><svg class="cring" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47"/><circle id="catchRing" cx="50" cy="50" r="47" pathLength="100"/></svg>
+      <i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i>
+      <div class="cfish" id="catchFish"></div>
+      <p class="clabel" aria-live="polite"><b id="catchTitle"></b><span id="catchMeta"></span></p>
+      <div class="cbubbles" id="catchNames"></div>
     </div>
     <div class="msgs" id="msgs" aria-live="polite"></div>
     <button class="chip talk" id="talkBtn" type="button" hidden>Talk</button>
@@ -64,7 +66,8 @@
     <div class="toast" id="toast" role="status" hidden></div>
     <button class="qbtn" id="galBack" type="button" hidden>&lsaquo; Back</button>
     <div class="galnote" id="galNote" hidden></div>
-    <div class="catch" id="fishInfo" role="dialog" aria-labelledby="fiTitle" hidden><div id="fiArt"></div><h3 id="fiTitle"></h3><p id="fiMeta"></p><button class="skip" id="fiClose" type="button">Close</button></div>
+    <div class="relhint" id="relHint" hidden>Back to the lake</div>
+    <div class="catch" id="fishInfo" role="dialog" aria-labelledby="fiTitle" hidden><div id="fiArt"></div><h3 id="fiTitle"></h3><p id="fiMeta"></p><button class="fifree" id="fiFree" type="button">Let it go back to the lake</button><button class="skip" id="fiClose" type="button">Close</button></div>
     <div class="settings" id="settings" role="dialog" aria-labelledby="setTitle" hidden>
       <h2 id="setTitle">Settings</h2>
       <section><h3>Day and night</h3>

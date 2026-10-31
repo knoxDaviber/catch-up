@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PAL } from './palette.js';
 import { ART } from '../assets/manifest.js';
-import { loadTex, artMat, cutout, updateArt, PLANE, WIND, sway } from './art.js';
+import { loadTex, artMat, cutout, updateArt, PLANE, WIND, NIGHT, sway } from './art.js';
 import { buildScatter } from './scatter.js';
 
 export const SEAT_X = 1.4;
@@ -227,7 +227,9 @@ export function buildWorld(scene) {
   const tent = new THREE.Mesh(new THREE.ConeGeometry(1.7, 1.7, 4), mat(PAL.tent)); tent.position.set(6.5, .85, -.5); tent.rotation.y = Math.PI / 4; tent.scale.set(1, 1, .9); scene.add(tent);
   cutout(scene, ART.cutouts.tent, 6.5, -.5, 1.9, { onLoad: () => { tent.visible = false; } });
   const [fx, fz] = FIRE, stones = []; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; stones.push(box(scene, fx + Math.cos(a) * .55, .08, fz + Math.sin(a) * .55, .22, .16, .2, PAL.stone)); }
-  limb(scene, [fx - .3, .12, fz - .2], [fx + .3, .18, fz + .2], .06, 0x5b4130); limb(scene, [fx + .3, .12, fz - .2], [fx - .3, .18, fz + .2], .06, 0x4f3828);
+  const sticks = [limb(scene, [fx - .3, .12, fz - .2], [fx + .3, .18, fz + .2], .06, 0x5b4130), limb(scene, [fx + .3, .12, fz - .2], [fx - .3, .18, fz + .2], .06, 0x4f3828)];
+  // the painted stone ring (laid sticks and all) in their place, leaning back like the ground it lies on so it reads flat from the chairs
+  cutout(scene, ART.props.fire_ring, fx, fz, .95, { y: .01, onLoad: m => { m.rotation.x = -1; m.position.z = .4; stones.concat(sticks).forEach(o => { o.visible = false; }); } });
 
   // cabin with a lantern, left
   const cabin = new THREE.Group(); cabin.position.set(-8.5, 0, -1); scene.add(cabin);
@@ -260,7 +262,8 @@ export function buildWorld(scene) {
     cutout(scene, ART.props.bucket, s * 1.95, -1.3, .34, { onLoad: hide(bucket) });
     const P = W.people[who], px = s * SEAT_X;
     W.hot.push({ key: 'radio', who, obj: radio, at: [s * 2.3, .75, -.6] }, { key: 'bucket', who, obj: bucket, at: [s * 1.95, .45, -1.3] },
-      { key: 'rod', who, obj: P.rodHit, at: [px + .1, 1.75, -1.55] }, { key: 'pickup', who, obj: P.restHit, at: [px + s * .45, .15, -.7] });
+      { key: 'rod', who, obj: P.rodHit, at: [px + .1, 1.75, -1.55] }, { key: 'pickup', who, obj: P.restHit, at: [px + s * .45, .15, -.7] },
+      { key: 'board', who, obj: stump, at: [0, BOARD_Y + .5, 0] }, { key: 'board', who, obj: slab, at: [0, BOARD_Y + .5, 0] });   // the stump and its slab (main adds the board and pieces themselves)
   });
 
   // ground scatter (ART.scatter): nothing where it would hide the board, the chairs, the things by them, the rod's resting spot or the fire; only low things in front of
@@ -268,10 +271,37 @@ export function buildWorld(scene) {
   const keep = (x, z) => { const ax = Math.abs(x), by = (px, pz, r) => Math.hypot(ax - px, z - pz) < r;
     if (z < -5.3 || (ax < 1.15 && z > -2.5) || (ax < 1.1 && Math.abs(z) < 1.1) || (ax > .8 && ax < 2.2 && z > -1.1 && z < 1.5) || by(2.3, -.6, .5) || by(1.95, -1.3, .45) || by(1.95, -2.5, .45) || Math.hypot(x + 3.25, z - 1.7) < .6 || Math.hypot(x - fx, z - fz) < .9) return 0;
     return ax < 2.6 && z < -1.6 ? .3 : Infinity; };
-  const scatter = buildScatter(scene, { trees: feet, keep, ring: { at: FIRE, r: .55, hide: stones } });
+  const ring = { at: FIRE, r: ART.props.fire_ring ? 0 : .55, hide: stones };   // with the painted ring, no scattered stones round the fire
+
+  /* The trip's layout: setLayout(seed) (the seed lives in the trip save) relays the ground scatter and the optional pieces, each there or not and in one of a few
+     believable spots. The camp itself (chairs, board, cabin, tent, jetty, fire, the things by the chairs, the clear water in front of the chairs) never moves.
+     Lily pads and the boat stay out where the floats can't be; everything is painted art only, so ?noart has none of it. */
+  const LILY = [[-5.6, -7.6], [-7.6, -8.4], [5.4, -8.6], [7.6, -7.8], [-4.4, -9.6]];   // out past the reeds, wide of the floats
+  const haloC = document.createElement('canvas'); haloC.width = haloC.height = 64; { const x = haloC.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
+  const HALO = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(haloC), color: 0xffb866, transparent: true, opacity: 0, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });   // no depth test: the ground would cut it square
+  let vary = null, scatter = null;
+  W.setLayout = seed => {
+    if (vary) { vary.removeFromParent(); vary.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); }
+    vary = W.vary = new THREE.Group(); scene.add(vary); W.layout = seed;
+    let sd = seed; const r = () => (sd = sd * 16807 % 2147483647) / 2147483647; r(); r();   // two warm-up draws: nearby seeds part ways
+    const one = a => a[Math.floor(r() * a.length)], avoid = [], trees = feet.slice();
+    const put = (k, x, z, h, o = {}, rad = 0) => { cutout(vary, ART.cutouts[k] || ART.props[k], x, z, h, { flip: r() < .5, ...o }); if (rad) avoid.push([x, z, rad]); };
+    const glow = (k, x, z, h, o, s) => { put(k, x, z, h, { ...o, glow: 1, flip: false }); const V = vary; loadTex(ART.props[k]).then(t => { if (!t) return; const g = new THREE.Sprite(HALO); g.position.set(x, (o.y || 0) + h * .55, z + .1); g.scale.set(s, s, 1); V.add(g); }); };
+    const spots = LILY.slice(); for (let n = 3; n--;) { const [x, z] = spots.splice(Math.floor(r() * spots.length), 1)[0], big = r() < .7; put(big ? 'lily_2' : 'lily_1', x + (r() - .5) * .6, z, big ? 1 : .7, { y: -.14 }); }
+    const boat = one([[-6.5, -9.2, 1, { y: -.2 }, 0], [-5.7, -4.3, .95, {}, 1.2], [10.3, -4.4, .95, {}, 1.2]]); put('boat', ...boat);   // tied at the jetty's end, or pulled up on the bank
+    const onCooler = r() < .6; glow('lantern', onCooler ? -3.25 : -3.95, onCooler ? 1.7 : 1.25, .36, onCooler ? { y: .56, dz: .06 } : {}, .9);
+    if (r() < .6) { const [x, z, o] = one([[2.25, 2.15, {}], [5.3, 1.1, {}], ...(onCooler ? [] : [[-3.25, 1.7, { y: .56, dz: .06 }]])]); glow('firefly_jar', x, z, .2, o, .5); }
+    if (r() < .5) put('cairn', ...one([[-4.7, -4.25], [4.6, -4.4], [12.3, -4.1]]), .45, {}, .4);
+    if (r() < .5) put('blanket', ...one([[4.6, 2.5], [-2.3, 3.3]]), .4, {}, .5);
+    const [cx, cz] = one([[5.2, .6], [7.9, .7], [5.1, -1.7]]); put('backpack', cx + .45, cz + .1, .55, {}, .4); if (r() < .7) put('bedroll', cx, cz, .32, {}, .4);   // by the tent
+    const lg = one([[-9.8, 6.2], [8.6, 7.4], [-5.2, 10.6]]), sp = one([[10.4, 4.2], [-11.2, 3.4], [4.2, 10.2]]); put('log', ...lg, .52, {}, 1); put('stump', ...sp, .5, {}, .5);
+    trees.push([...lg, .6, 'log'], [...sp, .6, 'stump']);
+    scatter = buildScatter(vary, { trees, keep: (x, z) => avoid.some(([ax, az, rr]) => Math.hypot(x - ax, z - az) < rr) ? 0 : keep(x, z), ring, seed });
+  };
 
   /** cam: for the painted planes to face it; turn (0..1): how far the people have turned from the lake to the board. */
   W.update = (t, cam, turn = 0) => { W.animated.forEach(f => f(t)); W.lakeDrift.value.set(t * 4e-6, t * 1.5e-6, -t * 3e-6, t * 2.5e-6); WIND.value = W.water.wT.value = t / 1000 * (CALM ? .35 : 1);
-    if (cam) { updateArt(cam); scatter(cam); peopleArt.forEach(f => f(cam, turn)); } };
+    HALO.opacity = NIGHT.value * (.5 + .04 * Math.sin(t / 230) * Math.sin(t / 370));   // the lantern's and jar's glow after dark, a slight flicker
+    if (cam) { updateArt(cam); scatter && scatter(cam); peopleArt.forEach(f => f(cam, turn)); } };
   return W;
 }
