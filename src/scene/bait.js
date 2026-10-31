@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { mat } from './world.js';
+import { ART } from '../assets/manifest.js';
+import { cutout } from './art.js';
 
 /* A small bait tin by each chair (the click target for "Toss some bait") and the little arc of crumbs it throws.
    buildBait(scene, onLand) -> { hot: entries for main's HOT map, toss(from, to, now), update(now) }. onLand(x, z, i) fires as each crumb hits the water. */
@@ -12,6 +14,7 @@ export function buildBait(scene, onLand) {
     const lid = new THREE.Mesh(new THREE.CylinderGeometry(.105, .105, .02, 14), mat(0x8f7a4a)); lid.position.set(.12, .02, .04); lid.rotation.z = .12; tin.add(lid);
     const mush = new THREE.Mesh(new THREE.CircleGeometry(.08, 12), mat(0x9b7b55)); mush.rotation.x = -Math.PI / 2; mush.position.y = .101; tin.add(mush);
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .3, 8), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = .15; tin.add(hit);
+    cutout(scene, ART.props.bait, s * 1.95, -2.5, .27, { onLoad: () => [can, lid, mush].forEach(o => { o.visible = false; }) });   // the painted tin; the hit mesh stays the click target
     hot.push({ key: 'bait', who, obj: tin, at: [s * 1.95, .3, -2.5] });
   });
   const pos = new Float32Array(N * 3), geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));

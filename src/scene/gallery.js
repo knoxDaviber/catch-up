@@ -7,7 +7,7 @@ import { ART } from '../assets/manifest.js';
 import { loadTex, PLANE } from './art.js';
 
 /* The fish gallery: Liam and Xiao inside the cabin, looking at an aquarium on a table.
-   Painted layer (only if cabin.png loads, never under ?noart): the room's shell and the 3D folk are hidden, leaving the deck, table and tank in front of a painted sky, ground, the cabin and a pair of sprites doing an activity that cross-fades every so often. No art keeps the room above.
+   Painted layer (never under ?noart): an activity pair of sprites stands on the floor beside the tank and cross-fades to another every so often (placeholders from the people sprites until the scenes exist), and the 3D folk step aside. If the interior plate loads, it fills the view behind the table and tank and the 3D room's shell and floor are hidden. No plate keeps the 3D room.
    The tank rocks gently. Fish swim about; drag one to move it, click one to see its name and how many you have caught. */
 const box = (p, x, y, z, w, h, d, c, o) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c, o)); m.position.set(x, y, z); p.add(m); return m; };
 /** A placeholder person in one of a few relaxed poses. Faces -z (toward the tank). */
@@ -53,7 +53,7 @@ export function buildGallery() {
   // shelf with jars, a rug
   box(room, 3.1, 1.3, -3.7, 2, .06, .4, 0x6b4a33); [0, 1, 2].forEach(i => box(room, 2.5 + i * .55, 1.5, -3.7, .22, .34, .22, [0xe6b84f, 0x5f8fa8, 0xc4685a][i]));
   const shell = room.children.slice(1);
-  box(room, 0, .01, .2, 4.4, .02, 3.2, 0xb7745a);
+  const rug = box(room, 0, .01, .2, 4.4, .02, 3.2, 0xb7745a);
 
   // table and tank
   box(room, 0, .8, -1.8, 2.4, .1, 1.1, 0x6b4a33);
@@ -97,30 +97,27 @@ export function buildGallery() {
   arrange(0);
 
 
-  // painted layer: sky, ground, cabin, and activity pairs that cross-fade
-  const P = { on: false, cur: 0, next: -1, f: 0, timer: 11 }, paint = new THREE.Group(); paint.visible = false; scene.add(paint);
-  const tintMats = [], NIGHTC = new THREE.Color(0x5a6490), tc = new THREE.Color();
-  const flatTex = (stops) => { const c = document.createElement('canvas'); c.width = 4; c.height = 128; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128); stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, 4, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  // painted layer: an interior plate behind the tank (if it loads, the room shell goes) and activity pairs that cross-fade
+  const P = { on: false, cur: 0, next: -1, f: 0, timer: 11 }, paint = new THREE.Group(); scene.add(paint);
+  const tintMats = [], NIGHTC = new THREE.Color(0x5a6490), tc = new THREE.Color(), floorBits = [room.children[0], rug];
   const pmat = (t, op = 1) => { const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: op, alphaTest: .02, depthWrite: false, fog: false, side: THREE.DoubleSide }); tintMats.push(m); return m; };
   const sprite = (parent, t, x, z, h, mt) => { const w = h * t.image.width / t.image.height, m = new THREE.Mesh(PLANE, mt); m.scale.set(w, h, 1); m.position.set(x - w / 2, 0, z); parent.add(m); return m; };
-  const skyMat = new THREE.MeshBasicMaterial({ map: flatTex([[0, '#8fb4cf'], [.7, '#cfe0e6'], [1, '#f1e6cf']]), fog: false }), skyM = new THREE.Mesh(new THREE.PlaneGeometry(200, 50), skyMat); skyM.position.set(0, 18, -40); paint.add(skyM);
-  const gndMat = new THREE.MeshBasicMaterial({ map: flatTex([[0, '#9aa66a'], [1, '#8a9658']]), fog: false }), gnd = new THREE.Mesh(new THREE.PlaneGeometry(160, 70), gndMat); gnd.rotation.x = -Math.PI / 2; gnd.position.set(0, -.07, -10); paint.add(gnd);
-  tintMats.push(skyMat, gndMat);
-  loadTex(ART.plates.sky_day).then(t => { if (t) { skyMat.map = t; skyMat.needsUpdate = true; } });
-  loadTex(ART.ground.grass).then(t => { if (!t) return; const g = t.clone(); g.wrapS = g.wrapT = THREE.RepeatWrapping; g.repeat.set(26, 14); g.needsUpdate = true; gndMat.map = g; gndMat.needsUpdate = true; });
   const slots = [], PEOPLE = ART.people;
-  const ARR = [[['liam_side', -.85], ['xiao_side', .85]], [['liam_back', -.65], ['xiao_back', .65]], [['liam_front', -.75], ['xiao_back', .65]]];
+  const ARR = [[['liam_side', -.85], ['xiao_side', .85]], [['liam_back', -.65], ['xiao_back', .65]], [['liam_front', -.75], ['xiao_back', .65]], [['liam_front', -.75], ['xiao_side', .75]], [['liam_back', -.7], ['xiao_front', .7]]];
   const setOp = (i, o) => { const s = slots[i]; if (!s) return; s.op = o; s.group.visible = o > .001; s.mats.forEach(m => { m.opacity = o; }); };
   (ART.gallery.activities || []).forEach((act, i) => {
-    const s = { group: new THREE.Group(), mats: [], op: 0 }; s.group.visible = false; s.group.position.set(-2.6, 0, -5.4); paint.add(s.group); slots.push(s);
+    const s = { group: new THREE.Group(), mats: [], op: i === P.cur ? 1 : 0 }; s.group.visible = s.op > 0; s.group.position.set(-1.5, 0, -.9); paint.add(s.group); slots.push(s);
     loadTex(act && act.src).then(async at => {
-      if (at) { s.mats.push(pmat(at, s.op)); sprite(s.group, at, 0, 0, 2.5, s.mats[0]); return; }
-      for (const [k, x] of ARR[i % ARR.length]) { const t = await loadTex(PEOPLE[k]); if (!t) continue; const mt = pmat(t, s.op); s.mats.push(mt); sprite(s.group, t, x, 0, 2.1, mt); }
+      if (at) { s.mats.push(pmat(at, s.op)); sprite(s.group, at, 0, 0, 1.9, s.mats[0]); }
+      else for (const [k, x] of ARR[i % ARR.length]) { const t = await loadTex(PEOPLE[k]); if (!t) continue; const mt = pmat(t, s.op); s.mats.push(mt); sprite(s.group, t, x * .75, 0, 1.45, mt); }
+      if (s.mats.length) { P.on = true; arm.visible = false; }
     });
   });
+  const PH = 2 * Math.tan(camera.fov * Math.PI / 360) * (2.8 + 4.1) * 1.04;   // fills the view from the resting camera (z 2.8); update() scales it with the camera's distance so the dolly never shows an edge
   loadTex(ART.gallery.backdrop).then(t => {
     if (!t) return;
-    sprite(paint, t, 1.3, -7.5, 4.8, pmat(t)); P.on = true; paint.visible = true; shell.forEach(o => { o.visible = false; }); folk.forEach(f => { f.visible = false; }); scene.fog = null; slots.forEach((s, i) => setOp(i, i === P.cur ? 1 : 0));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(PH * t.image.width / t.image.height, PH), pmat(t)); m.material.transparent = false; m.material.depthWrite = true; m.position.set(0, 1.2, -4.1); paint.add(m); m.renderOrder = -1; P.plate = m;
+    shell.forEach(o => { o.visible = false; }); floorBits.forEach(o => { o.visible = false; }); stool.visible = false;
   });
 
   // fish
@@ -161,15 +158,16 @@ export function buildGallery() {
     camera.position.set(sx * (1 - v), 1.5 + Math.sin(t * .3) * .02 * (1 - v) - .1 * v, ry + (-0.05 - ry) * v);
     camera.lookAt(0, 1.25 + .12 * v, -1.8);
     camera.fov = 50 + (44 - 50) * v; camera.updateProjectionMatrix();
+    if (P.plate) P.plate.scale.setScalar((camera.position.z + 4.1) / (2.8 + 4.1));
     const closeUp = G.vt > .6; room.visible = !closeUp || true; folk.forEach(f => { f.visible = !P.on && G.vt < .85; });
     if (P.on) {
       if (slots.length > 1) { P.timer -= dt; if (P.timer <= 0) { P.timer = 11 + Math.random() * 4; P.next = (P.cur + 1 + Math.floor(Math.random() * (slots.length - 1))) % slots.length; P.f = 0; } }
       if (P.next >= 0) { P.f = Math.min(1, P.f + dt / 1.8); setOp(P.cur, 1 - P.f); setOp(P.next, P.f); if (P.f >= 1) { P.cur = P.next; P.next = -1; } }
-      tc.set(0xffffff).lerp(NIGHTC, night * .65); tintMats.forEach(m => m.color.copy(tc));
     }
+    tc.set(0xffffff).lerp(NIGHTC, night * .65); tintMats.forEach(m => m.color.copy(tc));
     // window and lamp follow the time of day
     windowMat.color.set(0xbfd8e8).lerp(new THREE.Color(0x0e1838), night); hemi.intensity = .9 - .35 * night; lamp.intensity = 7 + 5 * night + Math.sin(t * 7) * .15;
-    if (!P.on) { scene.background.set(0x2a2018).lerp(new THREE.Color(0x120e0a), night); scene.fog.color.copy(scene.background); }
+    scene.background.set(0x2a2018).lerp(new THREE.Color(0x120e0a), night); scene.fog.color.copy(scene.background);
     // the gentle rock: the tank leans, the water sloshes a little behind it
     tank.rotation.z = Math.sin(t * .6) * .02; tank.position.x = Math.sin(t * .6) * .01; waterG.rotation.z = Math.sin(t * .6 - 1.1) * .035;
     plants.forEach((m, i) => { m.rotation.z = Math.sin(t * 1.3 + i) * .12; });

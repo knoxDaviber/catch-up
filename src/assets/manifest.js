@@ -53,17 +53,23 @@ export const FISH_ART = {
   trout: null, brown_trout: null, carp: null, eel: null, catfish: null, murray_cod: null,
 };
 
-const A = 'assets/art/';
+const A = 'assets/art/', N = (k, n) => Array.from({ length: n }, (_, i) => A + `scatter/${k}_${i + 1}.png`);
 export const ART = {
   // seated in their camp chair, faceless, transparent. Side views: Liam faces right, Xiao faces left.
   people: { liam_side: A + 'people/liam_side.png', liam_front: A + 'people/liam_front.png', liam_back: A + 'people/liam_back.png',
     xiao_side: A + 'people/xiao_side.png', xiao_front: A + 'people/xiao_front.png', xiao_back: A + 'people/xiao_back.png' },
   // far: far shore and hills, transparent sky, cut just below the waterline. Skies: day/night tinting is done in code.
   plates: { far: A + 'plates/far.png', sky_day: A + 'plates/sky_day.jpg', sky_night: A + 'plates/sky_night.jpg' },
+  // forest tree-line strips (transparent, wide) wrapped round the land side in three depth bands: near crisp, far hazier. Empty lists keep the drawn canopy bands.
+  forest: { near: [A + 'forest/strip_c.png', A + 'forest/strip_d.png', A + 'forest/strip_f.png'], mid: [A + 'forest/strip_a.png', A + 'forest/strip_e.png'], far: [A + 'forest/strip_b.png', A + 'forest/strip_g.png'] },
+  clouds: [A + 'clouds/cumulus_a.png', A + 'clouds/cumulus_b.png'],   // painted cumulus (blue sky keyed out) that drift in place of the drawn cumulus
   cutouts: { tree_gum: A + 'cutouts/tree_gum.png', tree_whitegum: A + 'cutouts/tree_whitegum.png', tree_paperbark: A + 'cutouts/tree_paperbark.png', tree_pine: A + 'cutouts/tree_pine.png',
-    wattle: A + 'cutouts/wattle.png', reeds: A + 'cutouts/reeds.png', cabin: A + 'cutouts/cabin.png', tent: A + 'cutouts/tent.png', jetty: A + 'cutouts/jetty.png' },
-  props: { radio: A + 'props/radio.png', bucket: A + 'props/bucket.png', crate: A + 'props/crate.png', chair: A + 'props/chair.png' },   // chair: only for an empty chair (none yet)
-  // gallery: painted cabin backdrop, plus activity scenes of Liam and Xiao (transparent PNGs, art/activities/<id>.png). src null = a placeholder pair made from the people sprites.
-  gallery: { backdrop: A + 'cutouts/cabin.png', activities: [{ id: 'chess', src: null }, { id: 'cooking', src: null }, { id: 'step', src: null }, { id: 'tangle', src: null }, { id: 'nap', src: null }] },
-  ground: { grass: A + 'ground/grass.jpg', path: A + 'ground/path.jpg' },   // tileable
+    wattle: A + 'cutouts/wattle.png', reeds: A + 'cutouts/reeds.png', cabin: A + 'cutouts/cabin.png', tent: A + 'cutouts/tent.png', jetty: A + 'cutouts/jetty.png',
+    clearing: A + 'cutouts/clearing.png', path_entry: A + 'cutouts/path_entry.png' },   // ground-level scenery framing where the path leaves the forest
+  props: { radio: A + 'props/radio.png', bucket: A + 'props/bucket.png', crate: A + 'props/crate.png', chair: A + 'props/chair.png', cooler: A + 'props/cooler.png', bait: A + 'props/bait.png' },   // chair: only for an empty chair (none yet)
+  // gallery: painted cabin interior plate (null = the 3D room), plus indoor activity scenes of Liam and Xiao (transparent PNGs, art/gallery/<id>.png). src null = a placeholder pair made from the people sprites.
+  gallery: { backdrop: A + 'gallery/interior.jpg', activities: [{ id: 'couch', src: null }, { id: 'phone', src: null }, { id: 'cards', src: null }, { id: 'kettle', src: null }, { id: 'window', src: null }] },
+  // ground scatter (transparent, sliced from one sheet): rocks, pebbles and grass dotted along the shore, the path and the feet of trees and buildings. An empty list skips that kind.
+  scatter: { boulder: N('boulder', 4), rock: N('rock', 6), pebble: N('pebble', 18), tuft: N('tuft', 6), clump: N('clump', 3) },
+  ground: { grass: A + 'ground/grass.jpg', path: A + 'ground/path.jpg', water: A + 'ground/water.jpg' },   // tileable; water tiles the lake under the day/night lake colour
 };

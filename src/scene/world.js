@@ -1,13 +1,39 @@
 import * as THREE from 'three';
 import { PAL } from './palette.js';
 import { ART } from '../assets/manifest.js';
-import { loadTex, artMat, cutout, updateArt, PLANE } from './art.js';
+import { loadTex, artMat, cutout, updateArt, PLANE, WIND, sway } from './art.js';
+import { buildScatter } from './scatter.js';
 
 export const SEAT_X = 1.4;
 export const HEAD_Y = 1.28;
 export const BOARD_Y = 0.58;
 /** The campfire, just past Xiao's chair on the far side from Liam: in view when Liam turns his head right round, clear of the board and the lake. */
 export const FIRE = [3.2, 1.3];
+
+const CALM = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;   // water and plants move at a third of the pace
+
+/* The lake's painted water, alive (only with the art): the two drifting samples bend on slow layered sines (wT, a clock in seconds); sun glints twinkle in small
+   cells laid out by view angle, so they stay a few pixels big however far off (sparse near, denser far, gathered toward the sun); a low sun or the moon lays a soft
+   shimmering path. glint (from daynight): the sun's or moon's direction across the water (x, z), sparkle and path strength; glintC: colour, and 1 for the moon's tighter path. */
+const WATER_HEAD = `uniform vec4 drift; uniform float wT; uniform vec4 glint; uniform vec4 glintC; varying vec3 vWP;
+  float wHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+`;
+const WATER_MAP = `vec2 wv = vec2(sin(vWP.z * 1.7 + wT * .55) + .6 * sin(vWP.x * 1.1 - vWP.z * 2.3 + wT * .4), sin(vWP.x * 1.3 + wT * .47) + .6 * sin(vWP.z * 2.9 + vWP.x * .7 - wT * .36)) * .008;
+  diffuseColor *= mix(texture2D(map, vMapUv + drift.xy + wv), texture2D(map, vMapUv * 1.31 + drift.zw - wv * .7), .5);
+`;
+const WATER_GLINT = `{ vec3 vd = vWP - cameraPosition; float dist = length(vd.xz), al = max(dot(vd.xz / max(dist, .001), glint.xy), 0.);
+  vec2 cp = vec2(atan(vd.x, -vd.z) * 70., atan(cameraPosition.y - vWP.y, dist) * 100.), ci = floor(cp), cf = fract(cp) - .5; float h = wHash(ci);
+  float dens = mix(.006, .16, smoothstep(4., 60., dist)) * mix(.12 + .88 * pow(al, 4.), pow(al, 24.), glintC.w);
+  float sp = step(1. - dens, wHash(ci + 17.3)) * pow(.5 + .5 * sin(wT * (.9 + 1.8 * h) + h * 60.), 6.) * smoothstep(.24, .04, length(cf * vec2(1., 1.9)));
+  float pth = pow(al, mix(60., 140., glintC.w)) * smoothstep(2., 20., dist) * (.55 + .45 * sin(vWP.x * 2.3 + vWP.z * 1.3 + wT * .7) * sin(vWP.z * 3.7 - wT * .5));
+  outgoingLight += glintC.rgb * (sp * glint.z + pth * glint.w); }
+`;
+/* The bank's water edge laps: a faint foam line breathes in and out across the alpha fade (v > .5 is the water side), with a darker wet band just inside it. */
+const LAP = `float am = texture2D(alphaMap, vAlphaMapUv).g;
+  if (vAlphaMapUv.y > .5) { float e = .3 + .14 * sin(wT * .7 + vAlphaMapUv.x * 9.) + .06 * sin(wT * 1.3 + vAlphaMapUv.x * 23.), f = smoothstep(e - .16, e, am) * (1. - smoothstep(e, e + .1, am));
+    diffuseColor.rgb = mix(diffuseColor.rgb * mix(1., .82, smoothstep(e, e + .35, am) * (1. - smoothstep(.75, 1., am))), vec3(1.), f * .55); diffuseColor.a *= max(am, f * .7); }
+  else diffuseColor.a *= am;
+`;
 
 const mats = new Map();
 export function mat(color, opts = {}) {
@@ -123,11 +149,20 @@ export function buildWorld(scene) {
   for (let i = 0; i < lp.count; i++) { lcol.copy(near).lerp(new THREE.Color(1, 1, 1), sstep(0, 45, lp.getY(i) + 70.7)); lc.push(lcol.r, lcol.g, lcol.b); }
   lakeG.setAttribute('color', new THREE.Float32BufferAttribute(lc, 3));
   const lake = new THREE.Mesh(lakeG, new THREE.MeshLambertMaterial({ color: PAL.lake, vertexColors: true })); lake.rotation.x = -Math.PI / 2; lake.position.set(0, .005, -75.3); scene.add(lake);
-  W.lake = lake;
+  W.lake = lake; W.lakeDrift = { value: new THREE.Vector4() }; W.water = { wT: { value: 0 }, glint: { value: new THREE.Vector4() }, glintC: { value: new THREE.Vector4() } };
+  // painted water: ~7 m tiles, sampled twice with slowly drifting offsets for a shimmer, under the day/night lake colour (lakeGain keeps the old colour on average)
+  loadTex(ART.ground.water).then(t => { if (!t) return; t = t.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(260 / 7, 141.4 / 7);
+    const c = document.createElement('canvas'); c.width = c.height = 8; const x = c.getContext('2d'); x.drawImage(t.image, 0, 0, 8, 8); const px = x.getImageData(0, 0, 8, 8).data, lin = v => Math.pow(v / 255, 2.2), g = [0, 0, 0];
+    for (let i = 0; i < px.length; i += 4) for (let k = 0; k < 3; k++) g[k] += lin(px[i + k]) / 64;
+    const m = lake.material; m.map = t; W.lakeGain = new THREE.Color(...g.map(v => 1 / Math.max(.15, v)));   // per channel, so the average stays the old lake colour and the paint adds the texture
+    m.onBeforeCompile = sh => { Object.assign(sh.uniforms, { drift: W.lakeDrift }, W.water); sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = WATER_HEAD + sh.fragmentShader.replace('#include <map_fragment>', WATER_MAP).replace('#include <opaque_fragment>', WATER_GLINT + '#include <opaque_fragment>'); };
+    m.needsUpdate = true; });
   const tile = (m, path, rx, ry, wrap = THREE.RepeatWrapping) => loadTex(path).then(t => { if (!t) return; t = t.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = wrap; t.repeat.set(rx, ry); const a = m.material.alphaMap;
-    m.material = a ? soft(m === bank ? 0xe6dfcf : 0xffffff, a) : new THREE.MeshLambertMaterial({ map: t }); m.material.map = t; });
-  // ~4 m grass tiles, mirrored to hide the seams; one path tile across; the bank (no art of its own yet) borrows the path's, about 5 m a tile and a little muted
-  tile(ground, ART.ground.grass, 55, 30, THREE.MirroredRepeatWrapping); tile(path, ART.ground.path, 1, 26 / 2.6); tile(bank, ART.ground.path, 220 / 5, 4.4 / 5, THREE.MirroredRepeatWrapping);
+    m.material = a ? soft(m === bank ? 0xe6dfcf : 0xffffff, a) : new THREE.MeshLambertMaterial({ map: t }); m.material.map = t;
+    if (m === bank) m.material.onBeforeCompile = sh => { sh.uniforms.wT = W.water.wT; sh.fragmentShader = 'uniform float wT;\n' + sh.fragmentShader.replace('#include <alphamap_fragment>', LAP); }; });
+  // 6 x 4 m grass tiles, mirrored to hide the seams; one path tile across; the bank (no art of its own yet) borrows the path's, about 5 m a tile and a little muted
+  tile(ground, ART.ground.grass, 220 / 6, 30, THREE.MirroredRepeatWrapping); tile(path, ART.ground.path, 1, 26 / 2.6); tile(bank, ART.ground.path, 220 / 5, 4.4 / 5, THREE.MirroredRepeatWrapping);
 
   // mountains and the far tree line
   const far = [];
@@ -140,30 +175,42 @@ export function buildWorld(scene) {
   loadTex(ART.plates.far).then(t => { if (!t) return; const R = 110, L = 2.4, H = R * L * t.image.height / t.image.width;
     const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 40, 1, true, Math.PI - L / 2, L), artMat(t, { alphaTest: .02, transparent: true }));
     m.position.y = H / 2 - 1.2; m.scale.x = -1; scene.add(m); far.forEach(o => { o.visible = false; }); });
+  const feet = [];   // [x, z, height, kind] of painted trees and reeds, for the ground scatter to dress
   // trees around the camp: placeholder pines, each swapped for a painted cutout when its art loads (art spot, kind, height)
   [[-16, -2, 'tree_gum', 10], [-13, 6, 'tree_paperbark', 8], [15, 2, 'tree_whitegum', 10], [18, -3, 'tree_pine', 11], [-20, 10, 'tree_pine', 10], [20, 9, 'tree_gum', 9.5], [-6, -10, 'tree_paperbark', 7, -6.6, -5.9]].forEach((p, i) => { const h = 4.6 + (i % 3);
     const ph = [box(scene, p[4] ?? p[0], .5, p[5] ?? p[1], .35, 1, .35, PAL.stump), cone(scene, p[4] ?? p[0], 1, p[5] ?? p[1], 1.6, h, 6, i % 2 ? PAL.pine : PAL.pineLight)];
-    cutout(scene, ART.cutouts[p[2]], p[4] ?? p[0], p[5] ?? p[1], p[3], { onLoad: () => ph.forEach(o => { o.visible = false; }) }); });
+    cutout(scene, ART.cutouts[p[2]], p[4] ?? p[0], p[5] ?? p[1], p[3], { onLoad: () => ph.forEach(o => { o.visible = false; }) }); feet.push([p[4] ?? p[0], p[5] ?? p[1], p[3], p[2]]); });
   // extra painted trees, wattles and reeds (art only: nothing here without the files)
   [[-24, -4, 'tree_gum', 11], [25, -2, 'tree_whitegum', 11], [-28, 6, 'tree_pine', 12], [11.5, -5.3, 'tree_paperbark', 7], [-11, -4.6, 'wattle', 3.2], [9.5, -4.2, 'wattle', 2.8],
     [-9, 13, 'tree_whitegum', 9], [12, 14, 'tree_gum', 10], [-30, -5.5, 'tree_paperbark', 8], [30, 4, 'tree_pine', 12],
     [-4.2, -5.9, 'reeds', 1.1], [-3.1, -6.1, 'reeds', .85], [3.6, -5.9, 'reeds', 1.2], [5.1, -6.05, 'reeds', .95], [-8.6, -5.8, 'reeds', 1.2], [8.2, -5.8, 'reeds', 1.1], [13.5, -5.9, 'reeds', 1]
-  ].forEach(p => cutout(scene, ART.cutouts[p[2]], p[0], p[1], p[3]));
-  // the forest closing round the camp on the land side, so the two of them are alone: a near ring of single trees, a darker mid ring, then two soft
-  // painted bands of canopy (dark understorey, then a hazier taller line) so no gap shows. The path leaves through the near ring and runs in under the trees.
+  ].forEach(p => { cutout(scene, ART.cutouts[p[2]], p[0], p[1], p[3], p[2] === 'reeds' ? { onLoad: m => sway(m.material, .05) } : {}); feet.push([p[0], p[1], p[3], p[2]]); });   // reeds sway
+  // the forest closing round the camp on the land side, so the two of them are alone: a loose near ring of single trees for depth, then the painted
+  // forest strips (or, without them, two drawn bands of canopy) so no gap shows. The path leaves through the near ring and runs in under the trees.
   const rnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); }, KINDS = ['tree_gum', 'tree_whitegum', 'tree_paperbark', 'tree_pine', 'tree_gum', 'tree_paperbark', 'wattle'];
-  [[14, 3.2, 7, 4, [0xffffff, 0xe8ece2, 0xd6ddd0]], [22, 3.6, 9, 4.5, [0xb9c4b6, 0xa6b3ab, 0x9aa9a8]]].forEach(([R, step, h0, hv, shades], L) => {
+  [[14, 6.5, 7, 4, [0xffffff, 0xe8ece2, 0xd6ddd0]]].forEach(([R, step, h0, hv, shades], L) => {
     for (let a = -.3, i = L * 100; a <= Math.PI + .3; a += step / R, i++) {
       const r = R + (rnd(i) - .5) * 4, aa = a + (rnd(i + 50) - .5) * .08, x = r * Math.cos(aa), z = 1 + r * Math.sin(aa), k = KINDS[Math.floor(rnd(i + 7) * KINDS.length)];
       if (L === 0 && Math.abs(x) < 6 && z > 9) continue;   // keep the wide (leaving) view of the camp clear; the path goes out between
-      cutout(scene, ART.cutouts[k], x, z, k === 'wattle' ? 3 + rnd(i + 3) * 1.4 : h0 + rnd(i + 3) * hv, { shade: shades[i % 3], flip: rnd(i + 9) > .5 });
+      const h = k === 'wattle' ? 3 + rnd(i + 3) * 1.4 : h0 + rnd(i + 3) * hv; cutout(scene, ART.cutouts[k], x, z, h, { shade: shades[i % 3], flip: rnd(i + 9) > .5 }); feet.push([x, z, h, k]);
     } });
-  [[-3.3, 18.6, 'tree_paperbark', 8.5], [3.5, 19.4, 'tree_gum', 10], [-2.9, 21.6, 'tree_whitegum', 9.5], [2.6, 22.4, 'tree_pine', 10.5], [-4.6, 16.4, 'wattle', 3.4], [4.4, 17.6, 'wattle', 3]]
-    .forEach((p, i) => cutout(scene, ART.cutouts[p[2]], p[0], p[1], p[3], { shade: i % 2 ? 0xe8ece2 : 0xffffff, flip: !!(i % 2) }));
+  [[5, 18.6, 'tree_whitegum', 9.5], [-11.5, 17, 'tree_paperbark', 8.5], [-4.6, 15.6, 'wattle', 3.4], [4.4, 16.4, 'wattle', 3]]
+    .forEach((p, i) => { cutout(scene, ART.cutouts[p[2]], p[0], p[1], p[3], { shade: i % 2 ? 0xe8ece2 : 0xffffff, flip: !!(i % 2) }); feet.push([p[0], p[1], p[3], p[2]]); });
+  const canopy = [];
   [[30, 12, 60, ['70,92,78', '92,116,98', '112,136,112'], 0xd2d8d0], [44, 19, 45, ['118,138,134', '136,154,148', '152,170,160'], 0xe2e6e2]].forEach(([R, H, n, cols, shade], i) => {
     const th = Math.acos((-5.6 - 1) / R), tex = canopyTex(7 + i * 31, n, cols); tex.repeat.x = Math.round(R * th * 2 / (H * 4));
     const band = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 56, 1, true, -th, th * 2), artMat(tex, { alphaTest: .02, transparent: true, depthWrite: false }, shade));
-    band.position.set(0, H / 2 - .3, 1); band.renderOrder = -2 + i * -1; scene.add(band); });
+    band.position.set(0, H / 2 - .3, 1); band.renderOrder = -2 + i * -1; scene.add(band); canopy.push(band); });
+  // painted forest strips replace those bands: three rings (near crisp, mid, far hazy and a little see-through) of cylinder pieces from the shore round to the shore,
+  // each piece a strip picked in turn and mirrored every other time, overlapping its neighbour and set a touch nearer or further so the joins never line up
+  [['near', 21, 0xffffff, 1], ['mid', 29, 0xdde5df, 1], ['far', 39, 0xd3dfe3, .82]].forEach(([k, R, shade, op], b) => Promise.all((ART.forest[k] || []).map(loadTex)).then(ts => { ts = ts.filter(Boolean); if (!ts.length) return;
+    const th = Math.acos((-5.6 - 1) / R), da = 2, n = Math.ceil((2 * th - da) / (da * .85)) + 1, step = (2 * th - da) / (n - 1), o = op < 1 ? { alphaTest: .05, transparent: true, opacity: op, depthWrite: false } : { alphaTest: .35 };
+    for (let i = 0; i < n; i++) { const t = ts[(i + b) % ts.length], flip = (i + b + Math.floor(i / ts.length)) % 2 === 1, r = R + (i % 2) * .7, h = da * r * t.image.height / t.image.width;
+      const g = new THREE.CylinderGeometry(r, r, h, 24, 1, true, -th + i * step, da).translate(0, h / 2 - .35, 0), uv = g.attributes.uv; for (let j = 0; j < uv.count; j++) uv.setX(j, flip ? uv.getX(j) : 1 - uv.getX(j));
+      const m = new THREE.Mesh(g, artMat(t, o, shade)); m.position.z = 1; m.renderOrder = -3 - b; scene.add(m); }
+    canopy.forEach(o => { o.visible = false; }); }));
+  // ground-level scenery framing where the path leaves the forest: the path running in, a clearing with boulders and a gum beside it (behind the wide view's camera)
+  cutout(scene, ART.cutouts.path_entry, .3, 19.2, 4.2, { y: -.15, yaw: Math.PI }); cutout(scene, ART.cutouts.clearing, -6.4, 17.6, 5, { y: -.15, yaw: Math.PI + .3 });
   // the jetty: a fixed plane running from the left shore out into the lake, its posts sinking below the waterline
   cutout(scene, ART.cutouts.jetty, -13, -5.4, 2, { y: -.8, ax: 0, yaw: .6435 });
 
@@ -175,10 +222,11 @@ export function buildWorld(scene) {
   const peopleArt = [personArt(scene, liam, 'liam', -SEAT_X), personArt(scene, xiao, 'xiao', SEAT_X)];
 
   // cooler beside Liam, camp props
-  box(scene, -3.25, .22, 1.7, .8, .44, .45, PAL.cooler); box(scene, -3.25, .47, 1.7, .84, .06, .49, PAL.coolerLid);
+  const cooler = [box(scene, -3.25, .22, 1.7, .8, .44, .45, PAL.cooler), box(scene, -3.25, .47, 1.7, .84, .06, .49, PAL.coolerLid)];
+  cutout(scene, ART.props.cooler, -3.25, 1.7, .66, { onLoad: () => cooler.forEach(o => { o.visible = false; }) });
   const tent = new THREE.Mesh(new THREE.ConeGeometry(1.7, 1.7, 4), mat(PAL.tent)); tent.position.set(6.5, .85, -.5); tent.rotation.y = Math.PI / 4; tent.scale.set(1, 1, .9); scene.add(tent);
   cutout(scene, ART.cutouts.tent, 6.5, -.5, 1.9, { onLoad: () => { tent.visible = false; } });
-  const [fx, fz] = FIRE; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; box(scene, fx + Math.cos(a) * .55, .08, fz + Math.sin(a) * .55, .22, .16, .2, PAL.stone); }
+  const [fx, fz] = FIRE, stones = []; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; stones.push(box(scene, fx + Math.cos(a) * .55, .08, fz + Math.sin(a) * .55, .22, .16, .2, PAL.stone)); }
   limb(scene, [fx - .3, .12, fz - .2], [fx + .3, .18, fz + .2], .06, 0x5b4130); limb(scene, [fx + .3, .12, fz - .2], [fx - .3, .18, fz + .2], .06, 0x4f3828);
 
   // cabin with a lantern, left
@@ -215,7 +263,15 @@ export function buildWorld(scene) {
       { key: 'rod', who, obj: P.rodHit, at: [px + .1, 1.75, -1.55] }, { key: 'pickup', who, obj: P.restHit, at: [px + s * .45, .15, -.7] });
   });
 
+  // ground scatter (ART.scatter): nothing where it would hide the board, the chairs, the things by them, the rod's resting spot or the fire; only low things in front of
+  // the chairs, where the floats must stay in sight; nothing out on the water. Mirrored, so both chairs get the same clearance.
+  const keep = (x, z) => { const ax = Math.abs(x), by = (px, pz, r) => Math.hypot(ax - px, z - pz) < r;
+    if (z < -5.3 || (ax < 1.15 && z > -2.5) || (ax < 1.1 && Math.abs(z) < 1.1) || (ax > .8 && ax < 2.2 && z > -1.1 && z < 1.5) || by(2.3, -.6, .5) || by(1.95, -1.3, .45) || by(1.95, -2.5, .45) || Math.hypot(x + 3.25, z - 1.7) < .6 || Math.hypot(x - fx, z - fz) < .9) return 0;
+    return ax < 2.6 && z < -1.6 ? .3 : Infinity; };
+  const scatter = buildScatter(scene, { trees: feet, keep, ring: { at: FIRE, r: .55, hide: stones } });
+
   /** cam: for the painted planes to face it; turn (0..1): how far the people have turned from the lake to the board. */
-  W.update = (t, cam, turn = 0) => { W.animated.forEach(f => f(t)); if (cam) { updateArt(cam); peopleArt.forEach(f => f(cam, turn)); } };
+  W.update = (t, cam, turn = 0) => { W.animated.forEach(f => f(t)); W.lakeDrift.value.set(t * 4e-6, t * 1.5e-6, -t * 3e-6, t * 2.5e-6); WIND.value = W.water.wT.value = t / 1000 * (CALM ? .35 : 1);
+    if (cam) { updateArt(cam); scatter(cam); peopleArt.forEach(f => f(cam, turn)); } };
   return W;
 }

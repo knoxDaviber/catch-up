@@ -35,3 +35,18 @@ export const faceCamera = (o, cam) => { o.rotation.y = Math.atan2(cam.position.x
 export function updateArt(cam) { bills.forEach(o => faceCamera(o, cam)); }
 /** Every painted material takes this colour, so the art darkens and warms with the light like the 3D world. */
 export function setArtTint(c) { tinted.forEach(([m, k]) => m.color.copy(c).multiply(k)); }
+
+/** Wind for swaying plants: WIND.value is a clock in seconds (world.update runs it, slower for reduced motion). sway(m, amp) bends a cutout material's top
+ *  sideways by up to amp of its width, each plant on its own phase from where it stands. Works on plain and instanced meshes. */
+export const WIND = { value: 0 };
+export function sway(m, amp = .04) {
+  if (m.userData.sway) return; m.userData.sway = amp;
+  m.onBeforeCompile = sh => { sh.uniforms.wind = WIND; sh.vertexShader = 'uniform float wind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    #ifdef USE_INSTANCING
+      vec2 swP = instanceMatrix[3].xz;
+    #else
+      vec2 swP = modelMatrix[3].xz;
+    #endif
+    transformed.x += (sin(wind * 1.1 + swP.x * .9 + swP.y * .6) + .4 * sin(wind * 2.3 + swP.y * 1.7)) * ${amp.toFixed(3)} * uv.y * uv.y;`); };
+  m.customProgramCacheKey = () => 'sway' + amp; m.needsUpdate = true;
+}

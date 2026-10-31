@@ -33,7 +33,8 @@ Put the files in `art/` (folders below). Rough versions are fine to start; they'
 | 11 | Ground and path | `art/ground/grass.png`, `path.png` | 1024 x 1024, tileable | |
 | 12 | Fish | `fish/<id>.png` | about 1024 wide | 18 kinds now; ids are in `src/game/fishing.js`. Facing right. |
 | 13 | Title logo | `art/logo.png` or `.svg` | 1600 wide | |
-| 14 | Gallery activity scenes (Liam and Xiao together, 5) | `art/activities/chess.png`, `cooking.png`, `step.png`, `tangle.png`, `nap.png` | 1536 x 1536, transparent | Stand in front of `art/cutouts/cabin.png` in the fish gallery. Set `src` in `ART.gallery.activities`. |
+| 14 | Gallery cabin interior plate | `art/gallery/interior.png` | 3840 x 2160, opaque | Fills the view behind the tank in the fish gallery; tinted at night in code. Set `ART.gallery.backdrop`. |
+| 14b | Gallery indoor activity scenes (Liam and Xiao together, 5) | `art/gallery/couch.png`, `phone.png`, `cards.png`, `kettle.png`, `window.png` | 1536 x 1536, transparent | Stand in front of the interior plate. Set `src` in `ART.gallery.activities`. |
 | 15 | Lake bank and water textures | `art/ground/bank.png`, `water.png` | 1024 x 1024, tileable | |
 | 16 | Forest backdrop strips | `art/plates/forest_near.png`, `forest_mid.png`, `forest_far.png` | 4096 x 1024, transparent, wrapping | Bush ring around the camp. |
 | 17 | Clouds | `art/clouds/cumulus.png`, `streaks.png`, `fluff1.png`, `fluff2.png` | 2048 x 1024, 2048 x 512, 1024 x 512 | Transparent. |

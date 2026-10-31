@@ -462,7 +462,7 @@ function setScene(s) {
   scene_ = s; rig.mode = s;
   stage.classList.toggle('intro', s === 'title' || s === 'select');
   stage.classList.toggle('ingame', s === 'game' || s === 'sit' || s === 'leaving');
-  $('intro').hidden = s !== 'title'; $('pick').hidden = s !== 'select'; $('topRight').hidden = s !== 'game'; $('dial').hidden = s !== 'game'; $('galBack').hidden = s !== 'gallery';
+  $('intro').hidden = s !== 'title'; $('pick').hidden = s !== 'select'; $('topRight').hidden = s !== 'game' && s !== 'title'; $('nowPlay').hidden = $('gearBtn').hidden = s !== 'game'; $('dial').hidden = s !== 'game'; $('galBack').hidden = s !== 'gallery';
   stage.classList.toggle('ingallery', s === 'gallery');
   updateUI();
 }
@@ -707,6 +707,10 @@ function openSettings() {
 function closeSettings() { $('settings').hidden = true; saveSettings(settings); updateUI(); settingsFrom && settingsFrom.focus && settingsFrom.focus(); }
 $('mSettings').addEventListener('click', openSettings);
 $('gearBtn').addEventListener('click', openSettings);
+const fsEl = document.documentElement, fsOn = () => !!(document.fullscreenElement || document.webkitFullscreenElement), fsCan = !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen), fsStandalone = navigator.standalone === true || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches, fsIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !fsCan;
+function fsSync() { const on = fsOn(), b = $('fsBtn'); b.hidden = fsStandalone || !(fsCan || fsIos); $('fsPath').setAttribute('d', on ? 'M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5' : 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'); b.title = on ? 'Exit full screen' : 'Full screen'; b.setAttribute('aria-label', b.title); }
+$('fsBtn').addEventListener('click', () => { if (!fsCan) { toast('Tip: add Catch Up to your Home Screen to play full screen'); return; } const p = fsOn() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document) : (fsEl.requestFullscreen || fsEl.webkitRequestFullscreen).call(fsEl); p && p.catch && p.catch(() => {}); });
+document.addEventListener('fullscreenchange', fsSync); document.addEventListener('webkitfullscreenchange', fsSync); fsSync();
 $('setClose').addEventListener('click', closeSettings);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('settings').hidden) closeSettings(); });
 $('sCycle').addEventListener('change', e => { settings.cycle = e.target.checked; applySettings(); });

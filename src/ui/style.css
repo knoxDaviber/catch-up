@@ -206,6 +206,10 @@ body{background:#171512}
 
 .gear{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:50%;border:1px solid rgba(58,50,40,.3);background:rgba(251,244,230,.82);color:#3A3228;cursor:pointer;z-index:4;opacity:.8;transition:opacity .2s,background .2s,transform .4s}
 .gear:hover,.gear:focus-visible{opacity:1;background:#FFFBF1;transform:rotate(30deg)}
+.topright [hidden]{display:none}
+.fsbtn{position:relative}
+.fsbtn::after{content:"";position:absolute;inset:-3px}
+.fsbtn:hover,.fsbtn:focus-visible{transform:none}
 .nowplay{display:flex;align-items:center;gap:.4em;max-width:min(240px,38vw);height:34px;padding:0 .9em;border-radius:999px;border:0;background:rgba(251,244,230,.82);color:#3A3228;font:inherit;font-size:13px;cursor:pointer;opacity:.8;box-shadow:0 1px 6px rgba(0,0,0,.12);transition:opacity .2s,background .2s}
 .nowplay:hover,.nowplay:focus-visible{opacity:1;background:#FFFBF1}
 .nowplay #npName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:opacity .18s}

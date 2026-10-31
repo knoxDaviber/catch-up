@@ -60,7 +60,7 @@ export function createDayNight(scene, world, camera) {
     const sp = new THREE.Sprite(m); sp.scale.set(size, size, 1); sp.frustumCulled = false; sp.renderOrder = -9; scene.add(sp); return sp; };
   const sunSp = skyBody(SKY_ART.sun, [[0, 1], [.1, 1], [.17, .8], [.3, .3], [.55, .09], [1, 0]], 150);
   const moonSp = skyBody(SKY_ART.moon, [[0, 1], [.2, 1], [.27, .75], [.38, .22], [.65, .06], [1, 0]], 120);
-  const SKY_R = 250, sunCol = new THREE.Color(), SUN_HI = new THREE.Color(0xfff6dc), SUN_LO = new THREE.Color(0xff7a45);
+  const SKY_R = 250, glDir = new THREE.Vector2(), sunCol = new THREE.Color(), SUN_HI = new THREE.Color(0xfff6dc), SUN_LO = new THREE.Color(0xff7a45);
   // arc: azimuth sweeps from +55 to -55 degrees across the front, elevation peaks at 24 degrees (the top of the view)
   const place = (sp, cam, ang) => { const az = 55 * Math.PI / 180 * Math.cos(ang), el = (26 * Math.sin(ang) - 2) * Math.PI / 180; sp.position.set(cam.x + Math.sin(az) * Math.cos(el) * SKY_R, cam.y + Math.sin(el) * SKY_R, cam.z - Math.cos(az) * Math.cos(el) * SKY_R); return el / Math.PI * 180; };
 
@@ -82,11 +82,13 @@ export function createDayNight(scene, world, camera) {
   const MIXES = [[.6, .15, .25, 9], [.15, .6, .25, 8], [.2, .15, .65, 13], [.35, .35, .3, 11], [.1, .5, .4, 5]];   // weights for cumulus, wisp, fluff; clouds out
   const CB = [[170, 1.6], [215, 1], [260, .62]], NC = 16, CLOUD_SPEED = .0045, calm = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   let weather = MIXES[3], mixIn = 200 + Math.random() * 120;
-  const form = (c, fresh) => { const w = weather, u = Math.random() * (w[0] + w[1] + w[2]), kind = u < w[0] ? 'cumulus' : u < w[0] + w[1] ? 'wisp' : 'fluff', [aw, hr, op] = CW[kind], R = CB[c.band][0];
-    c.kind = kind; c.op = op; c.m.map = CT[kind][Math.random() < .5 ? 0 : 1]; c.m.needsUpdate = true; c.az = Math.random() * 6.283; c.el = (4 + Math.random() * (kind === 'wisp' ? 26 : 19)) * Math.PI / 180;
+  const form = (c, fresh) => { const w = weather, u = Math.random() * (w[0] + w[1] + w[2]), kind = u < w[0] ? 'cumulus' : u < w[0] + w[1] ? 'wisp' : 'fluff', tx = CT[kind][Math.floor(Math.random() * CT[kind].length)], R = CB[c.band][0];
+    const [aw, hr, op] = tx.userData.cw || CW[kind]; c.kind = kind; c.op = op; c.m.map = tx; c.m.needsUpdate = true; c.az = Math.random() * 6.283; c.el = (4 + Math.random() * (kind === 'wisp' ? 26 : 19)) * Math.PI / 180;
     c.life = 100 + Math.random() * 160; c.age = fresh ? Math.random() * c.life : 0; const wd = 2 * R * Math.tan(aw * (.8 + .4 * Math.random()) * Math.PI / 360); c.sp.scale.set(wd, wd * hr, 1); };
   const clouds = Array.from({ length: NC }, (_, i) => { const m = new THREE.SpriteMaterial({ transparent: true, opacity: 0, fog: false, depthWrite: false }), sp = new THREE.Sprite(m);
     sp.frustumCulled = false; sp.renderOrder = -8; scene.add(sp); const c = { sp, m, band: i % 3, on: i < weather[3] ? 1 : 0 }; form(c, true); return c; });
+  // painted cumulus (ART.clouds) take over from the drawn ones: wider, a touch more solid, their own aspect
+  Promise.all((ART.clouds || []).map(loadTex)).then(ts => { ts = ts.filter(Boolean); if (!ts.length) return; ts.forEach(t => { t.userData.cw = [34, t.image.height / t.image.width, .78]; }); CT.cumulus = ts; clouds.forEach(c => { if (c.kind === 'cumulus') form(c, true); }); });
   const cloudCol = new THREE.Color(), WHITE = new THREE.Color(0xffffff);
   const stepClouds = (dt, hor, night, cam) => {
     if ((mixIn -= dt) < 0) { mixIn = 180 + Math.random() * 180; weather = MIXES.filter(m => m !== weather)[Math.floor(Math.random() * (MIXES.length - 1))]; }
@@ -113,9 +115,9 @@ export function createDayNight(scene, world, camera) {
     scene.fog.color.copy(hor);
     world.hemi.color.copy(L(a.hemiS, b.hemiS)); world.hemi.groundColor.copy(L(a.hemiG, b.hemiG)); world.hemi.intensity = N(a.hemiI, b.hemiI);
     world.sun.color.copy(L(a.sun, b.sun)); world.sun.intensity = N(a.sunI, b.sunI);
-    world.lake.material.color.copy(L(a.lake, b.lake));
+    const lk = L(a.lake, b.lake); world.lake.material.color.copy(lk); if (world.lakeGain) world.lake.material.color.multiply(world.lakeGain);   // lakeGain: brings the painted water back to the old lake colour on average
     // after dark the lit lake goes near black; a little of its own colour as glow stands in for the night sky it reflects
-    world.lake.material.emissive.copy(world.lake.material.color).multiplyScalar(.35 * N(a.night, b.night));
+    world.lake.material.emissive.copy(lk).multiplyScalar(.35 * N(a.night, b.night));
     // painted planes are unlit: tint them by the light, relative to noon, with a floor so they still read by moonlight
     tint.copy(world.hemi.color).multiplyScalar(world.hemi.intensity * .6).add(tmpB.copy(world.sun.color).multiplyScalar(world.sun.intensity * .4));
     tint.r = Math.max(.07, Math.min(1, tint.r / NOON.r)); tint.g = Math.max(.08, Math.min(1, tint.g / NOON.g)); tint.b = Math.max(.15, Math.min(1, tint.b / NOON.b)); setArtTint(tint);
@@ -127,6 +129,11 @@ export function createDayNight(scene, world, camera) {
     world.sun.position.set(sx * (1 - night) + mx * night, sy * (1 - night) + 14 * night, sz * (1 - night) - 10 * night);
     sunSp.material.opacity = smooth(-3, 3, sunEl) * (1 - .5 * night); sunSp.material.color.copy(sunCol.copy(SUN_LO).lerp(SUN_HI, smooth(2, 28, sunEl)));
     moonSp.material.opacity = smooth(-3, 4, moonEl) * smooth(.15, .7, night); moonSp.material.color.set(0xfdf3d8);
+    // the water's glints and path (world.js) follow whichever of the sun and moon is showing: sparkles by day, a long path when the sun is low, a tighter moon path at night
+    if (world.water) { const day = smooth(-2, 4, sunEl) * (1 - night), moon = smooth(-2, 5, moonEl) * smooth(.4, .8, night), sun = day >= moon, b = sun ? sunSp : moonSp;
+      glDir.set(b.position.x - camera.position.x, b.position.z - camera.position.z).normalize();
+      world.water.glint.value.set(glDir.x, glDir.y, sun ? .9 * day : .5 * moon, sun ? .5 * day * (1 - smooth(4, 20, sunEl)) : .4 * moon);
+      if (sun) world.water.glintC.value.set(sunCol.r * 1.1, sunCol.g * 1.1, sunCol.b * 1.05, 0); else world.water.glintC.value.set(.78, .82, .92, 1); }
     starMat.opacity = smooth(.55, .95, night); skyMat.uniforms.night.value = night;
     const g = 1 + 1.6 * night; glows.forEach(([m, base]) => { m.emissiveIntensity = base * g; });
     dome.position.copy(camera.position); stars.position.copy(camera.position); stepClouds(dt, hor, night, camera.position);

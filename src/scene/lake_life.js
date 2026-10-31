@@ -32,6 +32,7 @@ export function buildLakeLife(scene, F, getMine, getNight = () => 0) {
   const possumSh = new THREE.Shape(); possumSh.moveTo(.32, .02); possumSh.bezierCurveTo(.34, .12, .22, .2, .1, .2); possumSh.bezierCurveTo(-.08, .24, -.22, .2, -.28, .1); possumSh.bezierCurveTo(-.4, .08, -.5, .16, -.62, .08); possumSh.bezierCurveTo(-.5, .0, -.4, .02, -.28, .0); possumSh.lineTo(-.2, 0); possumSh.lineTo(-.18, -.1); possumSh.lineTo(-.1, -.1); possumSh.lineTo(-.08, 0); possumSh.lineTo(.12, 0); possumSh.lineTo(.14, -.1); possumSh.lineTo(.22, -.1); possumSh.lineTo(.22, 0); possumSh.lineTo(.32, .02);
   const wrenSh = new THREE.Shape(); wrenSh.moveTo(.1, .0); wrenSh.bezierCurveTo(.1, .08, .06, .14, .0, .14); wrenSh.bezierCurveTo(-.05, .14, -.08, .1, -.1, .05); wrenSh.lineTo(-.24, .12); wrenSh.lineTo(-.14, -.02); wrenSh.bezierCurveTo(-.1, -.1, .05, -.1, .1, 0); wrenSh.lineTo(.18, .02);
   let nextAt = performance.now() + rnd(15000, 35000), cr = null;
+  let ringAt = performance.now() + rnd(4000, 9000);   // now and then a slow, faint ring spreads somewhere out on the lake, clear of the floats
   const clearCr = () => { if (cr) { cr.group.removeFromParent(); cr.group.traverse(o => { if (o.material) o.material.dispose(); if (o.geometry && o.geometry !== fishGeo) o.geometry.dispose(); }); cr = null; } };
   function spawn(now, night) {
     const day = night < .3, dusk = night >= .3 && night < .8, g = new THREE.Group(); scene.add(g);
@@ -89,12 +90,13 @@ export function buildLakeLife(scene, F, getMine, getNight = () => 0) {
       g.position.set(f.x, .014, f.z); g.rotation.y = -f.h; s.scale.set(L, L * (.9 + .12 * Math.sin(now / 380 + f.ph)), 1);
     }
     for (const [f, s] of shadows) if (!F.fish.includes(f)) { s.userData.g.removeFromParent(); s.material.dispose(); shadows.delete(f); }
+    if (now > ringAt) { ringAt = now + rnd(6000, 14000); const x = rnd(-16, 16), z = rnd(-28, -10); if (Math.abs(x) > 5 || z < -14) F.ripples.push({ x, z, r0: .1, r1: rnd(1, 1.6), dur: rnd(4500, 6500), t0: now, a: .25 }); }
     // ripples
     F.ripples = F.ripples.filter(r => (now - r.t0) / r.dur < 1);
     while (ripples.length < F.ripples.length) { const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.y = .018; scene.add(m); ripples.push(m); }
     ripples.forEach((m, i) => {
       const r = F.ripples[i]; m.visible = !!r; if (!r) return;
-      const age = (now - r.t0) / r.dur, rr = r.r0 + (r.r1 - r.r0) * age; m.position.x = r.x; m.position.z = r.z; m.scale.set(rr, rr, 1); m.material.opacity = .7 * (1 - age);
+      const age = (now - r.t0) / r.dur, rr = r.r0 + (r.r1 - r.r0) * age; m.position.x = r.x; m.position.z = r.z; m.scale.set(rr, rr, 1); m.material.opacity = (r.a ?? .7) * (1 - age);
     });
     // floats and lines
     const mine = getMine(), night = getNight();   // seat side (-1 left / +1 right) of the player's float
