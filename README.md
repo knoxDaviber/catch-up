@@ -16,3 +16,5 @@ Run with Vite: `npm install`, then `npm run dev`. `npm run build` makes a static
 Design doc is the source of truth for decisions. Design rule: settings live in the world or in dialogue, not menus (radio and bucket by your chair, the time ring, the friend's offers).
 
 Art and sound: see `src/assets/manifest.js` and `public/assets/README.md`.
+Music used: https://pixabay.com/music/ambient-ambient-music-for-studyrelaxationwork-sessions-625842/
+https://pixabay.com/users/andriig-54059306/
