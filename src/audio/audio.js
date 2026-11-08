@@ -77,6 +77,7 @@ export function createAudio(settings) {
     lamp: () => { tone(1500, .03, { type: 'square', vol: .05 }); tone(1100, .05, { type: 'triangle', vol: .06, delay: .04 }); },
     possum: () => { noise(.22, { freq: 900, type: 'bandpass', q: 1.5, vol: .05, attack: .05 }); tone(150, .2, { type: 'sawtooth', vol: .012, slide: -30, delay: .3, attack: .05 }); },
   };
+  const SFX_GAIN = { move: .22, capture: .26, grunt: .15, cooler: .2, crackle: .5 };   /* file level vs the synth: files are peak-normalised, so trim per name here */
   async function getBuffer(name, src) {
     if (buffers.has(name)) return buffers.get(name);
     if (!loading.has(name)) loading.set(name, fetch(src).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(b => A.ctx.decodeAudioData(b)).then(buf => { buffers.set(name, buf); return buf; }).catch(() => { buffers.set(name, null); return null; }));
@@ -84,8 +85,10 @@ export function createAudio(settings) {
   }
   A.sfx = (name, pan = 0) => {
     if (!A.ctx || settings.muted) return;
-    const src = SFX[name];
-    if (src) { getBuffer('sfx:' + name, src).then(buf => { if (!buf) { curPan = pan; try { SYN[name] && SYN[name](); } finally { curPan = 0; } return; } const s = A.ctx.createBufferSource(); s.buffer = buf; s.connect(panTo(sfxBus, pan)); s.start(); }); return; }
+    if ((name === 'birdcall' || name === 'tweet') && (amb.night01 > .15 || Math.random() > .35)) return;
+    if (name === 'quack' && (amb.night01 > .6 || Math.random() > .5)) return;
+    const list = SFX[name], src = Array.isArray(list) ? list[Math.floor(Math.random() * list.length)] : list;
+    if (src) { getBuffer('sfx:' + src, src).then(buf => { if (!buf) { curPan = pan; try { SYN[name] && SYN[name](); } finally { curPan = 0; } return; } const s = A.ctx.createBufferSource(), g = A.ctx.createGain(); s.buffer = buf; g.gain.value = SFX_GAIN[name] ?? 1; const out = panTo(sfxBus, pan); s.connect(g); g.connect(out); s.onended = () => { s.disconnect(); g.disconnect(); if (out !== sfxBus) out.disconnect(); }; s.start(); }); return; }
     curPan = pan; try { SYN[name] && SYN[name](); } finally { curPan = 0; }
   };
 
@@ -136,13 +139,14 @@ export function createAudio(settings) {
   A.tracks = () => MUSIC.map(t => ({ id: t.id, name: t.name }));
 
   /* ---------- ambience ---------- */
-  const amb = { water: null, day: null, night: null, frogs: null, fire: null, birdT: 0, fireT: 0, night01: 0, fire01: 0 };
+  const amb = { water: null, day: null, night: null, frogs: null, fire: null, birdT: 0, fireT: 0, night01: 0, fire01: 0, real: {} };
+  const AMB_LEVEL = { water: .22, day: .14, night: .2, frogs: .2, fire: .3 };   /* files are all about -20 LUFS, so these set the mix */
   const rnd = (a, b) => a + Math.random() * (b - a), sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const wPan = () => rnd(-.9, .9);
   function loop(name, mk) {
     const g = A.ctx.createGain(); g.gain.value = 0; g.connect(ambBus);
     const src = AMBIENCE[name];
-    if (src) { const el = new Audio(src); el.loop = true; el.crossOrigin = 'anonymous'; A.ctx.createMediaElementSource(el).connect(g); el.addEventListener('error', () => { mk(g); }); el.play().catch(() => {}); } else mk(g);
+    if (src) getBuffer('amb:' + name, src).then(buf => { if (!buf) { mk(g); return; } amb.real[name] = true; const s = A.ctx.createBufferSource(), t = A.ctx.createGain(); s.buffer = buf; s.loop = true; t.gain.value = AMB_LEVEL[name] ?? .5; s.connect(t); t.connect(g); s.start(0, Math.random() * buf.duration); }); else mk(g);
     return g;
   }
   function startAmbience() {
@@ -153,34 +157,30 @@ export function createAudio(settings) {
     amb.night = loop('night', () => { /* crickets are scheduled below */ });
     amb.frogs = loop('frogs', () => { /* frogs are scheduled below */ });
     amb.fire = loop('fire', () => { /* crackle is scheduled below */ });
-    amb.fire.gain.value = 1;
+    amb.fire.gain.value = AMBIENCE.fire ? 0 : 1;
     const every = (lo, hi, fn) => { const go = () => { if (!A.ctx) return; try { fn(); } catch (e) {} setTimeout(go, rnd(lo, hi) * 1000); }; setTimeout(go, rnd(lo, hi) * 1000); };
     const day01 = () => 1 - amb.night01, ab = () => !settings.muted && settings.ambVol > 0;
     // day: a magpie-ish warble now and then, or small distant birds; they thin out toward dusk
-    every(7, 18, () => { const w = day01() * day01(); if (AMBIENCE.day || !ab() || Math.random() > w * .9) return;
+    every(25, 60, () => { const w = 1 - sm(.02, .2, amb.night01); if (amb.real.day || !ab() || Math.random() > w * .5) return;
       const p = wPan(), far = Math.random() < .55;
-      if (far) { const f = rnd(3000, 4300), n = 4 + Math.floor(Math.random() * 4); for (let i = 0; i < n; i++) tone(f + (i % 2) * 260, .05, { vol: .022 * w, slide: i % 3 ? 500 : -400, delay: i * .085, dest: ambBus, pan: p }); return; }
+      if (far) { const f = rnd(3000, 4300), n = 4 + Math.floor(Math.random() * 4); for (let i = 0; i < n; i++) tone(f + (i % 2) * 260, .05, { vol: .012 * w, slide: i % 3 ? 500 : -400, delay: i * .085, dest: ambBus, pan: p }); return; }
       const f = rnd(620, 820), notes = [1, 1.5, 1.25, 1.8, 1.5, 1.2, 1.6, 1.25];
-      for (let i = 0; i < 6 + Math.floor(Math.random() * 3); i++) { const n = notes[i % notes.length] * f; tone(n, .17, { vol: .05 * w, slide: i % 2 ? -140 : 160, delay: i * .16, dest: ambBus, pan: p, attack: .03 }); tone(n * 2, .12, { vol: .012 * w, delay: i * .16, dest: ambBus, pan: p, attack: .03 }); } });
+      for (let i = 0; i < 6 + Math.floor(Math.random() * 3); i++) { const n = notes[i % notes.length] * f; tone(n, .17, { vol: .025 * w, slide: i % 2 ? -140 : 160, delay: i * .16, dest: ambBus, pan: p, attack: .03 }); tone(n * 2, .12, { vol: .006 * w, delay: i * .16, dest: ambBus, pan: p, attack: .03 }); } });
     // dusk and night: frogs, a soft pobblebonk or a tapping trill, rising as the light goes
-    every(1.4, 4.2, () => { const w = sm(.2, .65, amb.night01) * (1 - .35 * sm(.9, 1, amb.night01)); if (AMBIENCE.frogs || !ab() || Math.random() > w * .8) return;
+    every(4, 10, () => { const w = sm(.2, .65, amb.night01) * (1 - .35 * sm(.9, 1, amb.night01)); if (amb.real.frogs || !ab() || Math.random() > w * .8) return;
       const p = wPan();
-      if (Math.random() < .45) { const f = rnd(300, 420); tone(f, .16, { vol: .05 * w, slide: -f * .45, dest: ambBus, pan: p, attack: .01 }); tone(f * 2.02, .08, { vol: .015 * w, slide: -f * .5, dest: ambBus, pan: p, attack: .01 }); }
-      else { const f = rnd(1400, 2000); for (let i = 0; i < 4 + Math.floor(Math.random() * 4); i++) tone(f, .035, { type: 'square', vol: .007 * w, slide: -300, delay: i * .075, dest: ambBus, pan: p }); } });
+      if (Math.random() < .45) { const f = rnd(300, 420); tone(f, .16, { vol: .025 * w, slide: -f * .45, dest: ambBus, pan: p, attack: .01 }); tone(f * 2.02, .08, { vol: .008 * w, slide: -f * .5, dest: ambBus, pan: p, attack: .01 }); }
+      else { const f = rnd(1400, 2000); for (let i = 0; i < 4 + Math.floor(Math.random() * 4); i++) tone(f, .035, { type: 'square', vol: .004 * w, slide: -300, delay: i * .075, dest: ambBus, pan: p }); } });
     // night: crickets chirping in short groups of pulses
-    every(.5, 1.6, () => { const w = sm(.55, 1, amb.night01); if (AMBIENCE.night || !ab() || Math.random() > w * .7) return;
+    every(1, 3, () => { const w = sm(.55, 1, amb.night01); if (amb.real.night || !ab() || Math.random() > w * .7) return;
       const p = wPan(), f = [4100, 4500, 4900, 5300][Math.floor(Math.random() * 4)];
-      for (let i = 0; i < 3; i++) tone(f, .03, { vol: .014 * w, delay: i * .065, dest: ambBus, pan: p, attack: .008 }); });
-    // a rare distant boobook owl, "mo-poke"
-    every(50, 130, () => { const w = sm(.85, 1, amb.night01); if (!ab() || Math.random() > w) return;
-      const p = wPan(), reps = 1 + Math.floor(Math.random() * 3), q = .6 + Math.random() * .4;
-      for (let r = 0; r < reps; r++) [[560, 0], [470, .34]].forEach(([f, d]) => { const dl = r * 1.5 + d; tone(f, .26, { vol: .05 * q, slide: -30, delay: dl, dest: ambBus, pan: p, attack: .05 }); tone(f * 2, .2, { vol: .008 * q, delay: dl, dest: ambBus, pan: p, attack: .05 }); }); });
+      for (let i = 0; i < 3; i++) tone(f, .03, { vol: .007 * w, delay: i * .065, dest: ambBus, pan: p, attack: .008 }); });
     // any time: soft slaps of water on the shore, and now and then a far-off splash
-    every(2.2, 6, () => { if (AMBIENCE.water || !ab()) return; noise(rnd(.25, .45), { freq: rnd(380, 700), vol: rnd(.025, .05), attack: .1, dest: ambBus, pan: wPan() }); });
-    every(30, 80, () => { if (!ab()) return; const p = wPan(); noise(.4, { freq: 2000, type: 'bandpass', q: .6, vol: .035, sweep: -1200, attack: .02, dest: ambBus, pan: p }); });
+    every(6, 14, () => { if (amb.real.water || !ab()) return; noise(rnd(.25, .45), { freq: rnd(380, 700), vol: rnd(.012, .025), attack: .1, dest: ambBus, pan: wPan() }); });
+    every(70, 160, () => { if (!ab()) return; const p = wPan(); noise(.4, { freq: 2000, type: 'bandpass', q: .6, vol: .02, sweep: -1200, attack: .02, dest: ambBus, pan: p }); });
     const crackle = () => {
       if (!A.ctx) return;
-      if (!AMBIENCE.fire && amb.fire01 > .1 && Math.random() < .8) noise(.04 + Math.random() * .05, { freq: 1500 + Math.random() * 2500, type: 'bandpass', q: 1.2, vol: .06 * amb.fire01 + .01, dest: ambBus });
+      if (!amb.real.fire && amb.fire01 > .1 && Math.random() < .8) noise(.04 + Math.random() * .05, { freq: 1500 + Math.random() * 2500, type: 'bandpass', q: 1.2, vol: .06 * amb.fire01 + .01, dest: ambBus });
       setTimeout(crackle, 80 + Math.random() * 380);
     };
     crackle();
@@ -190,7 +190,7 @@ export function createAudio(settings) {
     amb.night01 = night; amb.fire01 = fire;
     if (!A.ctx) return; const t = nowT();
     if (amb.night) amb.night.gain.setTargetAtTime(night, t, .8);
-    if (amb.day) amb.day.gain.setTargetAtTime(1 - night, t, .8);
+    if (amb.day) amb.day.gain.setTargetAtTime(1 - sm(.05, .35, night), t, .8);
     if (amb.frogs) amb.frogs.gain.setTargetAtTime(sm(.2, .65, night), t, .8);
     if (AMBIENCE.fire && amb.fire) amb.fire.gain.setTargetAtTime(fire, t, .5);
   };

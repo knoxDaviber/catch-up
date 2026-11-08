@@ -3,7 +3,7 @@
    Put files under public/assets/... and write the path WITHOUT "public/", e.g. 'assets/audio/music/morning.ogg'.
 
    MUSIC   a list. The first entry is the default. Add as many tracks as you like; players pick one in Settings.
-   SFX     one file per effect name (short .ogg/.wav). null = synthesised placeholder.
+   SFX     one file per effect name (short .ogg/.wav), or a list of takes (one is picked at random). null = synthesised placeholder.
    AMBIENCE  looping beds. null = synthesised placeholder.
    SKY_ART   optional painted sprites for the sun and moon (soft-edged WebP with transparency, roughly square, centred). null = generated glow.
    FISH_ART  one image per fish kind (transparent WebP, fish facing RIGHT). null = drawn placeholder.
@@ -19,14 +19,14 @@ export const MUSIC = [
 export const SFX = {
   click: null,      // any button
   select: null,     // picking up a chess piece
-  move: null,       // a chess move
-  capture: null,    // a capture
+  move: [1, 2, 3].map(i => `assets/audio/sfx/move${i}.ogg`),   // a chess move
+  capture: [1, 2].map(i => `assets/audio/sfx/capture${i}.ogg`),   // a capture
   splash: null,     // hooking a fish, plopping into the water
   nibble: null,     // a nibble on the float
   bite: null,       // the bite
   reel: null,       // reeling in
   catch: null,      // fish caught
-  grunt: null,      // sitting down / standing up
+  grunt: [1, 2, 3].map(i => `assets/audio/sfx/cloth${i}.ogg`),   // sitting down / standing up
   blip: null,       // a friend speaking
   pop: null,        // a fish in the aquarium is picked up
   fishjump: null,   // a small fish leaping out on the lake
@@ -38,9 +38,9 @@ export const SFX = {
   plop: null,       // the float landing on the water
   reelclick: null,  // one click of the reel while reeling in or fighting
   croak: null,      // a frog croaking
-  cooler: null,     // the cooler's lid thumping open or shut
+  cooler: 'assets/audio/sfx/latch.ogg',   // the cooler's lid thumping open or shut
   cancrack: null,   // a can opening (pssh)
-  crackle: null,    // the campfire poked: a burst of crackles
+  crackle: 'assets/audio/sfx/poke.ogg',   // the campfire poked: a burst of crackles
   zip: null,        // the tent flap
   stone: null,      // a stone set on the cairn
   lamp: null,       // the lantern switched
@@ -51,11 +51,11 @@ export const VO = {   // e.g. liam_arrival_01: 'assets/audio/vo/liam_arrival_01.
 };
 
 export const AMBIENCE = {
-  water: null,      // lake lapping (loop)
-  day: null,        // birds and breeze (loop)
+  water: 'assets/audio/amb/water.ogg',      // lake lapping (loop)
+  day: 'assets/audio/amb/day.ogg',        // birds and breeze (loop)
   night: null,      // crickets (loop)
   frogs: null,      // frogs at dusk and night (loop)
-  fire: null,       // crackle (loop)
+  fire: 'assets/audio/amb/fire.ogg',       // crackle (loop)
 };
 
 export const SKY_ART = { sun: null, moon: null };   // e.g. 'assets/art/sun.webp'; null falls back to the generated glow

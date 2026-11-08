@@ -10,7 +10,7 @@ Vite serves `public/` at the site root, so files live in `public/assets/...` but
 | Fish art (one per kind) | `fish/` | WebP, transparent | Any aspect ratio (it is no longer squished). Fish facing RIGHT, tightly cropped, about 1024 px wide (long side). Under 500 KB each. |
 | Music | `audio/music/` | OGG (Vorbis), 128-192 kbps, stereo | 2-4 min each. Soft, loop-friendly endings. Normalise to about -16 LUFS. Any number of tracks. |
 | Sound effects | `audio/sfx/` | OGG or WAV, mono, 44.1 kHz | Under 2 s each (clicks and blips under 0.5 s). Names: see `SFX` in the manifest. |
-| Ambience loops | `audio/ambience/` | OGG, stereo | 30-60 s, seamless loop, quiet and steady. Names: water, day, night, frogs, fire. |
+| Ambience loops | `audio/amb/` | OGG, mono, 44.1 kHz | 30 s, seamless (crossfaded) loop, about -20 LUFS, quiet and steady; levels are set in `AMB_LEVEL` in `audio.js`. Keys: water, day, night, frogs, fire. |
 
 ## Art status (Nov 2026)
 
@@ -36,7 +36,7 @@ The painted art lives in `art/` and every file is listed in `ART` in the manifes
 | Gallery interior redesign, tank, table, ornaments, 12 activity sprites | `art/gallery/` | See "Gallery art spec" below. The old five "together" scenes (couch, phone, cards, kettle, window) are replaced by six solo activities per friend. |
 | App icon | `icon-512.png` (in `public/`) | Square, for `manifest.webmanifest`, so Android offers to install. |
 | Sun and moon sprites (optional) | `SKY_ART` | Without them, a generated glow is used. |
-| Sounds | `audio/sfx/`, `audio/ambience/` | All synthesised placeholders for now; names are in the manifest. |
+| Sounds | `audio/sfx/`, `audio/amb/` | Still synthesised: click, select, splash, nibble, bite, reel, catch, blip, pop, fishjump, quack, birdcall, tweet, possum, cast, plop, reelclick, croak, cancrack, zip, stone, lamp and the frogs bed. Not yet hooked: cabin door, page turn, car door, tank bubbles. |
 
 ## Gallery art spec
 
@@ -91,3 +91,20 @@ The stump under the board is the existing `ART.cutouts.stump` (it is only 104 px
 A story line tagged `#vo:<id>` plays `VO[id]` from the manifest (`VO = { liam_arrival_01: 'assets/audio/vo/liam_arrival_01.ogg' }`) on its own bus. Music dips while it plays, and the Settings "Voices" slider (`voiceVol`) sets its level. Mono OGG, 44.1 kHz, one file per line, trimmed tight. Ids with no manifest entry are skipped silently, so tags can go in the ink before any audio exists.
 
 Browsers need a click before they play sound, so music starts on your first click.
+
+## Sound credits/sources
+
+Sonniss GDC Game Audio Bundle licence (`License - GDC Game Audio.pdf`): worldwide, royalty-free, commercial use in games allowed, no attribution required, may be modified; may not be resold as-is and may not be used to train AI. Kenney packs are CC0. All files below were trimmed, mono-mixed, loudness/peak-normalised and encoded to OGG Vorbis q3; loops have a 2 s crossfaded seam.
+
+| File | Used for | Source pack | Licence |
+|---|---|---|---|
+| `amb/fire.ogg` | campfire bed (scaled by fire level) | Ivo Vicic, Campfire - Bonfire FX (pine branches in fire, 16-48 s) | Sonniss GDC |
+| `amb/water.ogg` | lake lapping bed | Epic Stock Media, Public Spaces - Storms Lakes Parks and Rural Nature Exteriors (Lake Dock ripples 05, 36-68 s) | Sonniss GDC |
+| `amb/day.ogg` | daytime meadow bed | Just Sound Effects, Highlands of Norway (Meadow Pipits, insects, wind, 2-34 s, low-passed at 2.2 kHz to mute the bird calls) | Sonniss GDC |
+| `sfx/poke.ogg` | `crackle`, poking the fire | Ivo Vicic, Campfire - Bonfire FX (11-12.7 s) | Sonniss GDC |
+| `sfx/move1-3.ogg` | chess move | Kenney, Impact Sounds: impactWood_light_000-002 | CC0 |
+| `sfx/capture1-2.ogg` | capture | Kenney, Impact Sounds: impactWood_medium_000-001 | CC0 |
+| `sfx/cloth1-3.ogg` | `grunt`, sitting and standing | Kenney, RPG Audio: cloth1-3 | CC0 |
+| `sfx/latch.ogg` | `cooler` | Kenney, RPG Audio: metalLatch | CC0 |
+
+Skipped: the night bed (jungle-night file, still chirpy; synth crickets kept), fish tank bubbles (LevieDAudio ships with no licence text, only a thank-you note), the frog croak (synth kept), the ambisonic campfire, and the cabin door, page turn and car door (no clean hook in the code yet; candidates are Kenney RPG Audio `creak*.ogg`, `bookFlip*.ogg` and SoundBits Mad Mustang Mercury `VEHDoor`).
