@@ -490,7 +490,7 @@ function syncPeople() {
 
 /* ---------- scene flow ---------- */
 function setScene(s) {
-  scene_ = s; rig.mode = s;
+  scene_ = s; rig.mode = s; if (s !== 'gallery') $('galNote').hidden = true;
   stage.classList.toggle('intro', s === 'title' || s === 'select');
   stage.classList.toggle('ingame', s === 'game' || s === 'sit' || s === 'leaving');
   $('intro').hidden = s !== 'title'; $('pick').hidden = s !== 'select'; $('topRight').hidden = s !== 'game' && s !== 'title'; $('nowPlay').hidden = $('gearBtn').hidden = s !== 'game'; $('dial').hidden = s !== 'game'; $('galBack').hidden = s !== 'gallery';
@@ -582,7 +582,7 @@ function openGallery() {
     $('galNote').hidden = false; $('galNote').textContent = n > 0 ? 'Click the tank for a closer look.' : 'The tank is empty. Catch a fish and give it a name, and it will move in.';
   }, 500);
 }
-function closeGallery() { if (scene_ !== 'gallery') return; hideFishInfo(); blackout(() => { setScene(galleryFrom); $('galNote').hidden = true; }, 400); }
+function closeGallery() { if (scene_ !== 'gallery') return; hideFishInfo(); blackout(() => { $('galNote').hidden = true; setScene(galleryFrom); }, 400); }
 function stopTalk() { if (talking) { inkRun++; talking = false; setFocus(false); clearMsgs(); } }   // leaving the camp mid-conversation drops it
 function showFishInfo(f) {
   gallery.selected = f; $('fiArt').innerHTML = fishHtml(f.kind);
@@ -842,7 +842,7 @@ function pickSquare(e) {
   const r = canvas.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  return board.pick(ray);
+  return board.pick(ray, st.legal);
 }
 canvas.addEventListener('pointerdown', e => {
   if (scene_ !== 'game' || e.button) return;   // the right button is the rod's shortcut (contextmenu below)

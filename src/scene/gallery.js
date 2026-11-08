@@ -123,7 +123,7 @@ export function buildGallery() {
   const bubbles = new THREE.Points(bg, new THREE.PointsMaterial({ color: 0xeafcff, size: 3, sizeAttenuation: false, transparent: true, opacity: .6, depthWrite: false })); bubbles.frustumCulled = false; bubbles.renderOrder = 5; tank.add(bubbles);
 
   /* ornaments: x is the position in the tank (metres from the centre), null while on the table */
-  let saved = {}; try { saved = JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { saved = {}; }
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem(STORE)); if (!saved || typeof saved !== 'object') saved = {}; } catch (e) { saved = {}; }
   const decor = DEC.map((d, i) => {
     const o = { ...d, i, tx: TRAY_X[i], x: d.id in saved ? saved[d.id] : d.x };
     o.mesh = new THREE.Mesh(BC, pmat(cv(256, Math.round(256 * d.h / d.w), d.paint))); o.mesh.userData.decor = o; o.mesh.renderOrder = 5; swap(o.mesh.material, ART.gallery.decor && ART.gallery.decor[d.id]); return o;

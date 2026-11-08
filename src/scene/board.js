@@ -99,10 +99,10 @@ export function buildBoard(scene) {
     group, squares,
     setSide(s) { SIDE = s; layout(); },
     /** The square under a ray: a piece card first (its body, not the empty corners of the card), else the square itself. */
-    pick(ray) {
-      const hits = ray.intersectObjects(pieces.children.map(p => p.children[0]), false).filter(h => h.uv && h.uv.y < .75 && Math.abs(h.uv.x - .5) < .42);
-      if (hits.length) return hits[0].object.userData.sq;
-      const h = ray.intersectObjects(squares, false)[0]; return h ? h.object.userData.sq : null;
+    pick(ray, legal) {
+      const hits = ray.intersectObjects(pieces.children.map(p => p.children[0]), false).filter(h => h.uv && h.uv.y < .75 && Math.abs(h.uv.x - .5) < .42), h = ray.intersectObjects(squares, false)[0], sq = h ? h.object.userData.sq : null;
+      if (hits.length) { const ps = hits[0].object.userData.sq; return legal && sq && legal.includes(sq) && !legal.includes(ps) ? sq : ps; }
+      return sq;
     },
     /** Slide a piece that has just moved (call before setPosition). Castling passes the rook too. */
     animate(moves) { const now = performance.now(); anims = moves.map(m => ({ to: m.to, from: xz(m.from), t0: now, d: 380 })); },

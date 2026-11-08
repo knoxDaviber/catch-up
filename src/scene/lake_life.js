@@ -40,7 +40,7 @@ export function buildLakeLife(scene, F, getMine, getNight = () => 0) {
   const clearCr = () => { if (cr) { cr.group.removeFromParent(); cr.group.traverse(o => { if (o.material) o.material.dispose(); if (o.geometry && o.geometry !== fishGeo) o.geometry.dispose(); }); cr = null; } };
   function spawn(now, night, force) {
     const day = night < .3, dusk = night >= .3 && night < .8, g = new THREE.Group(); scene.add(g);
-    const kind = force || (day ? pick(['flock', 'flock', 'wren', 'fish', 'fish', ...(dragonT ? ['dragonfly', 'dragonfly'] : [])]) : dusk ? pick(['ducks', 'ducks', 'fish', 'fish', 'flock', 'frog']) : pick(['frog', 'frog', 'fish']));
+    const kind = force === 'dragonfly' && !dragonT ? 'frog' : force || (day ? pick(['flock', 'flock', 'wren', 'fish', 'fish', ...(dragonT ? ['dragonfly', 'dragonfly'] : [])]) : dusk ? pick(['ducks', 'ducks', 'fish', 'fish', 'flock', 'frog']) : pick(['frog', 'frog', 'fish']));
     const dir = Math.random() < .5 ? 1 : -1, c = { kind, group: g, t0: now, dir, parts: [], done: false, cued: 0 };
     if (kind === 'flock' || kind === 'ducks') {
       const n = kind === 'ducks' ? 2 : pick([1, 1, 2, 3, 5]), duck = kind === 'ducks', y0 = duck ? rnd(.9, 1.4) : rnd(14, 26), z = duck ? rnd(-46, -34) : -90, sc = duck ? .55 : 2.2;

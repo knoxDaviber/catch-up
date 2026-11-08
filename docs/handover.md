@@ -4,6 +4,7 @@ Updated 2026-11-09. The design doc is `docs/design.md`; the story canon is `stor
 
 ## Done (latest rounds)
 
+- **Nov 9, batch 2 (bug fixes):** gallery note hidden whenever the scene leaves `gallery` (`setScene`); corrupt `catchup.tank.v1` (non-object) no longer breaks import; `board.pick(ray, legal)` prefers a legal target square over a piece card leaning onto it; `__cu.critter("dragonfly")` falls back to a frog when the texture is missing.
 - **Flat chess + camp clicks (Nov 9):** board and pieces are flat painted canvas art (manifest `ART.board`, null = drawn in code), the stump is the stump cutout, the fire's logs are painted cards (`ART.props.logs`). New clickable camp things: cooler (lid, can, crack), campfire poke, lantern switch, tent, cairn; each gives a cooled-down friend line (`lines.js`). Voice hook: `#vo:<id>` plays `VO[id]` (voice bus, Settings "Voices" slider). Next: real art per `public/assets/README.md`; check the knight's facing and the cooler lid card by eye.
 
 - **Polish round (Nov 9):** focus beats turn the board view to the friend (`rig.lookAtFriend`); critters: frog (dusk/night) replaces the possum and the wren now flies in, pecks and flies off (`__cu.critter("frog"|"wren")`); campfire smoke wisps; new synth sfx (cast, plop, reelclick, croak, wooden tock for move/capture). Unchecked by eye in 3D.
