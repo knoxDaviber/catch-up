@@ -56,7 +56,7 @@ export function createAudio(settings) {
     cast: () => { noise(.38, { freq: 500, type: 'bandpass', q: .9, vol: .12, attack: .14, sweep: 1700 }); noise(.2, { freq: 2200, type: 'bandpass', q: .8, vol: .04, attack: .08, delay: .22, sweep: -1200 }); },
     plop: () => { tone(300, .11, { vol: .16, slide: 260 }); noise(.14, { freq: 1500, type: 'bandpass', q: .7, vol: .06, sweep: -700 }); },
     reelclick: () => { tone(2500, .018, { type: 'square', vol: .022 }); tone(1500, .03, { type: 'triangle', vol: .04, delay: .01 }); },
-    croak: () => [0, .17].forEach(d => { tone(135, .13, { type: 'sawtooth', vol: .02, slide: -35, delay: d, attack: .03 }); tone(270, .11, { vol: .028, slide: -90, delay: d, attack: .03 }); }),
+    croak: () => [0, .17].forEach(d => { tone(135, .15, { type: 'sine', vol: .018, slide: -35, delay: d, attack: .06 }); tone(270, .12, { vol: .012, slide: -60, delay: d, attack: .06 }); }),
     splash: () => { noise(.45, { freq: 2400, type: 'bandpass', q: .6, vol: .4, sweep: -1500 }); tone(300, .2, { type: 'sine', vol: .15, slide: -150 }); },
     nibble: () => { tone(900, .06, { type: 'sine', vol: .12, slide: -300 }); noise(.12, { freq: 1800, type: 'bandpass', vol: .1 }); },
     bite: () => { tone(660, .12, { type: 'triangle', vol: .3 }); tone(990, .16, { type: 'triangle', vol: .24, delay: .1 }); },
@@ -65,7 +65,7 @@ export function createAudio(settings) {
     grunt: () => { tone(110, .35, { type: 'sawtooth', vol: .12, slide: -30 }); noise(.3, { freq: 400, vol: .15 }); },
     blip: () => tone(420 + Math.random() * 120, .05, { type: 'sine', vol: .06 }),
     pop: () => tone(500, .07, { type: 'sine', vol: .18, slide: 400 }),
-    fishjump: () => { noise(.1, { freq: 3200, type: 'bandpass', q: .8, vol: .1, sweep: -1800 }); noise(.5, { freq: 2200, type: 'bandpass', q: .6, vol: .2, sweep: -1400, delay: .62, attack: .02 }); tone(420, .16, { vol: .08, slide: -240, delay: .64 }); },
+    fishjump: () => { noise(.1, { freq: 3200, type: 'bandpass', q: .8, vol: .05, attack: .03, sweep: -1800 }); noise(.5, { freq: 2200, type: 'bandpass', q: .6, vol: .2, sweep: -1400, delay: .62, attack: .02 }); tone(420, .16, { vol: .08, slide: -240, delay: .64 }); },
     quack: () => [0, .2].forEach(d => { tone(430, .13, { type: 'sawtooth', vol: .035, slide: -120, delay: d, attack: .02 }); tone(640, .1, { type: 'sine', vol: .03, slide: -150, delay: d, attack: .02 }); }),
     birdcall: () => { const f = 1500 + Math.random() * 500; for (let i = 0; i < 3; i++) tone(f + (i % 2) * 380, .12, { vol: .035, slide: -260, delay: i * .17 }); },
     tweet: () => { const f = 3300 + Math.random() * 600; for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) tone(f, .06, { vol: .03, slide: 700, delay: i * .1 }); },
@@ -169,12 +169,19 @@ export function createAudio(settings) {
     // dusk and night: frogs, a soft pobblebonk or a tapping trill, rising as the light goes
     every(4, 10, () => { const w = sm(.2, .65, amb.night01) * (1 - .35 * sm(.9, 1, amb.night01)); if (amb.real.frogs || !ab() || Math.random() > w * .8) return;
       const p = wPan();
-      if (Math.random() < .45) { const f = rnd(300, 420); tone(f, .16, { vol: .025 * w, slide: -f * .45, dest: ambBus, pan: p, attack: .01 }); tone(f * 2.02, .08, { vol: .008 * w, slide: -f * .5, dest: ambBus, pan: p, attack: .01 }); }
-      else { const f = rnd(1400, 2000); for (let i = 0; i < 4 + Math.floor(Math.random() * 4); i++) tone(f, .035, { type: 'square', vol: .004 * w, slide: -300, delay: i * .075, dest: ambBus, pan: p }); } });
+      if (Math.random() < .45) { const f = rnd(300, 420); tone(f, .2, { vol: .02 * w, slide: -f * .3, dest: ambBus, pan: p, attack: .05 }); tone(f * 2.02, .08, { vol: .005 * w, slide: -f * .3, dest: ambBus, pan: p, attack: .05 }); }
+      else { const f = rnd(1400, 2000); for (let i = 0; i < 4 + Math.floor(Math.random() * 4); i++) tone(f, .035, { type: 'square', vol: .003 * w, slide: -300, delay: i * .1, dest: ambBus, pan: p, attack: .02 }); } });
     // night: crickets chirping in short groups of pulses
     every(1, 3, () => { const w = sm(.55, 1, amb.night01); if (amb.real.night || !ab() || Math.random() > w * .7) return;
       const p = wPan(), f = [4100, 4500, 4900, 5300][Math.floor(Math.random() * 4)];
-      for (let i = 0; i < 3; i++) tone(f, .03, { vol: .007 * w, delay: i * .065, dest: ambBus, pan: p, attack: .008 }); });
+      for (let i = 0; i < 3; i++) tone(f, .03, { vol: .006 * w, delay: i * .08, dest: ambBus, pan: p, attack: .02 }); });
+    // deep night only: a rare, soft, distant owl, "hoo... hoo-hoo", low-passed with a faint echo, never twice within two minutes
+    const owl = A.ctx.createGain(), owlLp = A.ctx.createBiquadFilter(), echo = A.ctx.createDelay(1), fb = A.ctx.createGain(); owl.gain.value = 1; owlLp.type = 'lowpass'; owlLp.frequency.value = 1500; echo.delayTime.value = .5; fb.gain.value = .25;
+    owl.connect(owlLp); owlLp.connect(ambBus); owlLp.connect(echo); echo.connect(fb); fb.connect(echo); echo.connect(ambBus);
+    let owlT = 0;
+    every(120, 300, () => { if (!ab() || amb.night01 < .7 || nowT() - owlT < 120) return; owlT = nowT();
+      const p = wPan(), f = rnd(300, 360), hoo = (d, dur, v) => { tone(f, dur, { vol: .011 * v, slide: -f * .06, delay: d, dest: owl, pan: p, attack: .15 }); tone(f * 2, dur, { vol: .002 * v, delay: d, dest: owl, pan: p, attack: .15 }); };
+      hoo(0, .7, 1); hoo(1.3, .45, .8); hoo(1.95, .6, .9); });
     // any time: soft slaps of water on the shore, and now and then a far-off splash
     every(6, 14, () => { if (amb.real.water || !ab()) return; noise(rnd(.25, .45), { freq: rnd(380, 700), vol: rnd(.012, .025), attack: .1, dest: ambBus, pan: wPan() }); });
     every(70, 160, () => { if (!ab()) return; const p = wPan(); noise(.4, { freq: 2000, type: 'bandpass', q: .6, vol: .02, sweep: -1200, attack: .02, dest: ambBus, pan: p }); });
