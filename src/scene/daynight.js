@@ -29,23 +29,26 @@ export function createDayNight(scene, world, camera) {
   const C = h => KF.find(k => k.h === h), refC = (a, b) => ({ value: [new THREE.Color(C(a).hor), new THREE.Color(C(a).zen), new THREE.Color(C(b).hor), new THREE.Color(C(b).zen)] });
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { top: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, dayT: { value: null }, nightT: { value: null }, night: { value: 0 }, refs: refC(12, 0) },
+    uniforms: { top: { value: new THREE.Color() }, hor: { value: new THREE.Color() }, dayT: { value: null }, nightT: { value: null }, night: { value: 0 }, refs: refC(12, 0), avgD: { value: new THREE.Color(1, 1, 1) }, avgN: { value: new THREE.Color(1, 1, 1) } },
     vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: `uniform vec3 top; uniform vec3 hor; uniform sampler2D dayT; uniform sampler2D nightT; uniform float night; uniform vec3 refs[4]; varying vec3 vD;
+    fragmentShader: `uniform vec3 top; uniform vec3 hor; uniform sampler2D dayT; uniform sampler2D nightT; uniform float night; uniform vec3 refs[4]; uniform vec3 avgD; uniform vec3 avgN; varying vec3 vD;
       void main(){ vec3 d = normalize(vD); float t = smoothstep(-0.05, 0.75, d.y); vec3 g = mix(hor, top, t);
       #ifdef ART
-        vec2 uv = vec2(atan(d.x, -d.z) / 1.5708 + 0.5, clamp((asin(clamp(d.y, -1.0, 1.0)) + 0.035) / 0.663, 0.002, 0.998));
+        float vr = (asin(clamp(d.y, -1.0, 1.0)) + 0.035) / 0.663, fade = smoothstep(0.7, 1.0, vr);
+        vec2 uv = vec2(atan(d.x, -d.z) / 1.5708 + 0.5, clamp(vr, 0.002, 0.998));
         vec3 tD = clamp(g / max(mix(refs[0], refs[1], t), vec3(0.002)), 0.0, 1.6), tN = clamp(g / max(mix(refs[2], refs[3], t), vec3(0.002)), 0.0, 1.6);
-        gl_FragColor = vec4(mix(texture2D(dayT, uv).rgb * tD, texture2D(nightT, uv).rgb * tN, night), 1.0);
+        gl_FragColor = vec4(mix(mix(texture2D(dayT, uv).rgb, avgD, fade) * tD, mix(texture2D(nightT, uv).rgb, avgN, fade) * tN, night), 1.0);
         #include <colorspace_fragment>
       #else
         gl_FragColor = vec4(g, 1.0);
       #endif
       }`,
   });
+  const topAvg = (t, out) => { const im = t.image, w = 64, h = 8, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.drawImage(im, 0, 0, im.width, Math.max(1, im.height * .04), 0, 0, w, h);
+    const px = x.getImageData(0, 0, w, h).data; let r = 0, g = 0, b = 0; for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; b += px[i + 2]; } const n = px.length / 4; out.setRGB(r / n / 255, g / n / 255, b / n / 255, THREE.SRGBColorSpace); };   // above the plate's top edge the last row would smear into streaks, so the sky fades to its average colour
   const skyTex = t => { t.wrapS = THREE.MirroredRepeatWrapping; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; return t; };   // no mips: the azimuth wraps behind you
   Promise.all([loadTex(ART.plates.sky_day), loadTex(ART.plates.sky_night)]).then(([d, n]) => { if (!d && !n) return;
-    skyMat.uniforms.dayT.value = skyTex(d || n); skyMat.uniforms.nightT.value = skyTex(n || d); skyMat.defines.ART = ''; skyMat.needsUpdate = true; });
+    skyMat.uniforms.dayT.value = skyTex(d || n); skyMat.uniforms.nightT.value = skyTex(n || d); topAvg(d || n, skyMat.uniforms.avgD.value); topAvg(n || d, skyMat.uniforms.avgN.value); skyMat.defines.ART = ''; skyMat.needsUpdate = true; });
   const dome = new THREE.Mesh(new THREE.SphereGeometry(300, 24, 16), skyMat); dome.renderOrder = -10; dome.frustumCulled = false; scene.add(dome);
   // stars and moon (in front of the camp, over the lake)
   const sp = new Float32Array(500 * 3);
@@ -80,7 +83,7 @@ export function createDayNight(scene, world, camera) {
   const CT = {}, CK = ['cumulus', 'wisp', 'fluff'], CW = { cumulus: [15, .5, .5], wisp: [32, .22, .34], fluff: [6, .62, .42] };   // angular width (degrees), height / width, opacity
   CK.forEach((k, i) => { CT[k] = [cloudTex(k, i * 3 + 1), cloudTex(k, i * 3 + 2)]; });
   const MIXES = [[.6, .15, .25, 9], [.15, .6, .25, 8], [.2, .15, .65, 13], [.35, .35, .3, 11], [.1, .5, .4, 5]];   // weights for cumulus, wisp, fluff; clouds out
-  const CB = [[170, 1.6], [215, 1], [260, .62]], NC = 16, CLOUD_SPEED = .0045, calm = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const CB = [[170, 1.6], [215, 1], [260, .62]], NC = 16, CLOUD_SPEED = .0004, calm = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   let weather = MIXES[3], mixIn = 200 + Math.random() * 120;
   const form = (c, fresh) => { const w = weather, u = Math.random() * (w[0] + w[1] + w[2]), kind = u < w[0] ? 'cumulus' : u < w[0] + w[1] ? 'wisp' : 'fluff', tx = CT[kind][Math.floor(Math.random() * CT[kind].length)], R = CB[c.band][0];
     const [aw, hr, op] = tx.userData.cw || CW[kind]; c.kind = kind; c.op = op; c.m.map = tx; c.m.needsUpdate = true; c.az = Math.random() * 6.283; c.el = (4 + Math.random() * (kind === 'wisp' ? 26 : 19)) * Math.PI / 180;
