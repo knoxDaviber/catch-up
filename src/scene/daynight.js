@@ -67,7 +67,7 @@ export function createDayNight(scene, world, camera) {
   // arc: azimuth sweeps from +55 to -55 degrees across the front, elevation peaks at 24 degrees (the top of the view)
   const place = (sp, cam, ang) => { const az = 55 * Math.PI / 180 * Math.cos(ang), el = (26 * Math.sin(ang) - 2) * Math.PI / 180; sp.position.set(cam.x + Math.sin(az) * Math.cos(el) * SKY_R, cam.y + Math.sin(el) * SKY_R, cam.z - Math.cos(az) * Math.cos(el) * SKY_R); return el / Math.PI * 180; };
 
-  // drifting clouds: a handful of soft watercolour sprites in three depth bands (nearer: bigger, quicker), over the sky plate, the stars, sun and moon,
+  // drifting clouds: a handful of soft watercolour quads in three depth bands (nearer: bigger, quicker), over the sky plate, the stars, sun and moon,
   // under the far shore and the trees. Each lives a few minutes and reforms elsewhere from the current weather mix, which shifts every few minutes.
   const cloudTex = (kind, seed) => {
     const [W, H] = kind === 'cumulus' ? [256, 128] : kind === 'wisp' ? [512, 112] : [128, 80], c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
@@ -88,7 +88,8 @@ export function createDayNight(scene, world, camera) {
   const form = (c, fresh) => { const w = weather, u = Math.random() * (w[0] + w[1] + w[2]), kind = u < w[0] ? 'cumulus' : u < w[0] + w[1] ? 'wisp' : 'fluff', tx = CT[kind][Math.floor(Math.random() * CT[kind].length)], R = CB[c.band][0];
     const [aw, hr, op] = tx.userData.cw || CW[kind]; c.kind = kind; c.op = op; c.m.map = tx; c.m.needsUpdate = true; c.az = Math.random() * 6.283; c.el = (4 + Math.random() * (kind === 'wisp' ? 26 : 19)) * Math.PI / 180;
     c.life = 100 + Math.random() * 160; c.age = fresh ? Math.random() * c.life : 0; const wd = 2 * R * Math.tan(aw * (.8 + .4 * Math.random()) * Math.PI / 360); c.sp.scale.set(wd, wd * hr, 1); };
-  const clouds = Array.from({ length: NC }, (_, i) => { const m = new THREE.SpriteMaterial({ transparent: true, opacity: 0, fog: false, depthWrite: false }), sp = new THREE.Sprite(m);
+  const cloudGeo = new THREE.PlaneGeometry(1, 1);   // world-space quads facing the camera position, so they stretch with the sky under the wide fov (Sprites kept their screen shape and swung)
+  const clouds = Array.from({ length: NC }, (_, i) => { const m = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, fog: false, depthWrite: false }), sp = new THREE.Mesh(cloudGeo, m);
     sp.frustumCulled = false; sp.renderOrder = -8; scene.add(sp); const c = { sp, m, band: i % 3, on: i < weather[3] ? 1 : 0 }; form(c, true); return c; });
   // painted cumulus (ART.clouds) take over from the drawn ones: wider, a touch more solid, their own aspect
   Promise.all((ART.clouds || []).map(loadTex)).then(ts => { ts = ts.filter(Boolean); if (!ts.length) return; ts.forEach(t => { t.userData.cw = [34, t.image.height / t.image.width, .78]; }); CT.cumulus = ts; clouds.forEach(c => { if (c.kind === 'cumulus') form(c, true); }); });
@@ -98,7 +99,7 @@ export function createDayNight(scene, world, camera) {
     cloudCol.copy(WHITE).lerp(hor, .45).multiplyScalar(1 - .55 * night); const out = Math.round(weather[3] * (1 - .6 * night)), sp = CLOUD_SPEED * D.cloudSpeed * (calm ? .3 : 1);
     clouds.forEach((c, i) => { c.age += dt; c.on += ((i < out ? 1 : 0) - c.on) * Math.min(1, dt * .05); if (c.age > c.life) form(c, false);
       const R = CB[c.band][0]; c.az += dt * sp * CB[c.band][1]; const ce = Math.cos(c.el);
-      c.sp.position.set(cam.x + Math.sin(c.az) * ce * R, cam.y + Math.sin(c.el) * R, cam.z - Math.cos(c.az) * ce * R);
+      c.sp.position.set(cam.x + Math.sin(c.az) * ce * R, cam.y + Math.sin(c.el) * R, cam.z - Math.cos(c.az) * ce * R); c.sp.lookAt(cam);
       c.m.opacity = c.op * c.on * smooth(0, 25, c.age) * (1 - smooth(c.life - 25, c.life, c.age)) * (1 - .45 * night); c.m.color.copy(cloudCol); });
   };
   D.cloudSpeed = 1;   // 0 holds them still
