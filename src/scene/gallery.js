@@ -9,10 +9,10 @@ import { loadTex, PLANE } from './art.js';
    Painted layer (never under ?noart for loaded files): the tank, its glass front and the table are flat painted planes; each has a manifest key (gallery.tank, tank_front, table) and a soft procedural
    canvas placeholder while it is null. The ornaments (gallery.decor) are small painted cut-outs the player drags along the tank floor; the ones not in the tank wait on the table
    (click to add, click one in the tank to put it back). Positions persist in catchup.tank.v1. The friends each do their own thing in a fixed zone beside or behind the table (never in front of the tank): ACT, one
-   sprite per activity per friend (gallery.activities[].liam / .xiao), falling back to the standing sprite plus a tiny prop. Each friend changes activity every 40-90 s with a soft cross-fade.
+   sprite per activity per friend (gallery.activities[].liam / .xiao), falling back to the standing sprite with a very slight sway. Each friend changes activity every 40-90 s with a soft cross-fade.
    If the interior plate loads, it fills the view behind and the 3D room's shell and floor are hidden. The tank rocks gently. Fish swim about; drag one to move it, click one to see its name. */
 const box = (p, x, y, z, w, h, d, c, o) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c, o)); m.position.set(x, y, z); p.add(m); return m; };
-const TW = 1.8, TH = 1.0, TD = .8, K = 400, TABLE_W = 3.4, TABLE_H = 1.0, SURF = .08 + TH * .8, STORE = 'catchup.tank.v1';
+const TW = 1.8, TH = 1.0, TD = .8, K = 400, TABLE_W = 3.4, TABLE_H = 1.0, SURF = TH * .96, S = .8, STORE = 'catchup.tank.v1';
 const BC = new THREE.PlaneGeometry(1, 1).translate(0, .5, 0);
 
 /* painted placeholders: a canvas drawn with soft washes, a little blur and paper grain */
@@ -26,7 +26,6 @@ const cv = (w, h, fn, blur = 1.1) => {
 const rr = (x, a, b, w, h, r) => { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); };
 const wash = (x, col, a = .85, edge = .3) => { x.save(); x.globalAlpha = a; x.fillStyle = col; x.fill(); x.globalAlpha = edge; x.strokeStyle = 'rgb(70,48,36)'; x.lineWidth = 2.5; x.stroke(); x.restore(); };
 const blob = (x, cx, cy, rx, ry, col, a, e) => { x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 6.2832); wash(x, col, a, e); };
-const glowTex = (c0, c1, fn) => cv(64, 64, x => { const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, c0); g.addColorStop(1, c1); x.fillStyle = g; x.fillRect(0, 0, 64, 64); fn && fn(x); }, 0);
 
 const paintTankBack = x => {
   const L = .05 * K, T = L, bw = TW * K, bh = TH * K, Y = y => T + (TH - y) * K;
@@ -76,12 +75,12 @@ const TRAY_X = [-1.08, -1.34, 1.08, 1.34, 1.6];
 /* Activities: a fixed zone (x, z in the room) beside or behind the table, never in front of the tank. face: which standing sprite to fall back on. base/amp: a resting lean and a slow sway in radians.
    Zones match the interior spec in public/assets/README.md (window, wall, stove, counter; phone and reading stand on the floor at the sides). */
 const ACT = [
-  { id: 'phone', x: -2.9, z: -1.9, face: 'front', amp: .006, prop: 'phone' },
+  { id: 'phone', x: -2.9, z: -1.9, face: 'front', amp: .006 },
   { id: 'wall', x: -3.1, z: -3.5, face: 'front', base: .06, amp: .004 },
   { id: 'window', x: -1.7, z: -3.4, face: 'back', amp: .008 },
-  { id: 'stove', x: 1.7, z: -3.4, face: 'back', amp: .004, prop: 'warm' },
-  { id: 'tea', x: 3.2, z: -3.4, face: 'back', amp: .008, prop: 'steam' },
-  { id: 'read', x: 2.9, z: -1.9, face: 'front', amp: .004, prop: 'book' },
+  { id: 'stove', x: 1.7, z: -3.4, face: 'back', amp: .004 },
+  { id: 'tea', x: 3.2, z: -3.4, face: 'back', amp: .008 },
+  { id: 'read', x: 2.9, z: -1.9, face: 'front', amp: .004 },
 ];
 
 export function buildGallery() {
@@ -105,18 +104,18 @@ export function buildGallery() {
   const shell = room.children.slice(1);
   const rug = box(room, 0, .01, .2, 4.4, .02, 3.2, 0xb7745a);
 
-  /* painted layer: flat planes in the watercolour style. Draw order: plate -1, people 0, table 1, tray 2, tank back 3, bubbles and ornaments 5, fish 6, glass front 8. */
+  /* painted layer (the tank's back and front planes sit only .1 m apart, so perspective keeps the water flush with the rim): flat planes in the watercolour style. Draw order: plate -1, people 0, table 1, tray 2, tank back 3, bubbles and ornaments 5, fish 6, glass front 8. */
   const paint = new THREE.Group(); scene.add(paint);
   const tintMats = [], NIGHTC = new THREE.Color(0x5a6490), tc = new THREE.Color(), floorBits = [room.children[0], rug];
   const pmat = (t, op = 1) => { const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: op, alphaTest: .02, depthWrite: false, fog: false, side: THREE.DoubleSide }); tintMats.push(m); return m; };
   const swap = (m, key) => loadTex(key).then(t => { if (t) { m.map = t; m.needsUpdate = true; } });
 
-  const table = new THREE.Mesh(PLANE, pmat(cv(TABLE_W * K, TABLE_H * K, paintTable))); table.scale.set(TABLE_W, TABLE_H, 1); table.position.set(-TABLE_W / 2, 0, -1.8); table.renderOrder = 1; scene.add(table); swap(table.material, ART.gallery.table);
+  const table = new THREE.Mesh(PLANE, pmat(cv(TABLE_W * K, TABLE_H * K, paintTable))); table.scale.set(TABLE_W * S, TABLE_H * S, 1); table.position.set(-TABLE_W * S / 2, 0, -1.8); table.renderOrder = 1; scene.add(table); swap(table.material, ART.gallery.table);
 
-  const tank = new THREE.Group(); tank.position.set(0, .88, -1.8); scene.add(tank);
+  const tank = new THREE.Group(); tank.position.set(0, .88 * S, -1.8); tank.scale.setScalar(S); scene.add(tank);
   const PW = TW + .1, PH_ = TH + .1;
   const addPane = (paintFn, key, z, ro) => { const m = new THREE.Mesh(PLANE, pmat(cv(Math.round(PW * K), Math.round(PH_ * K), paintFn))); m.scale.set(PW, PH_, 1); m.position.set(-PW / 2, -.05, z); m.renderOrder = ro; tank.add(m); swap(m.material, key); return m; };
-  addPane(paintTankBack, ART.gallery.tank, -TD / 2, 3); addPane(paintTankFront, ART.gallery.tank_front, TD / 2 + .01, 8);
+  addPane(paintTankBack, ART.gallery.tank, -.05, 3); addPane(paintTankFront, ART.gallery.tank_front, .05, 8);
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false, side: THREE.DoubleSide })); glass.position.set(0, TH / 2, TD / 2); tank.add(glass);
   const BN = 18, bpos = new Float32Array(BN * 3), bseed = Array.from({ length: BN }, () => Math.random());
   const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(bpos, 3));
@@ -131,7 +130,7 @@ export function buildGallery() {
   const lim = d => Math.max(.2, TW / 2 - .12 - d.w / 2);
   const place = d => {
     if (typeof d.x === 'number') { d.x = Math.max(-lim(d), Math.min(lim(d), d.x)); tank.add(d.mesh); d.mesh.position.set(d.x, .06, d.z); d.mesh.scale.set(d.w, d.h, 1); d.mesh.renderOrder = 5; }
-    else { d.x = null; scene.add(d.mesh); d.mesh.position.set(d.tx, .91, -1.74); d.mesh.scale.set(d.w * .5, d.h * .5, 1); d.mesh.renderOrder = 2; d.mesh.rotation.z = 0; }
+    else { d.x = null; scene.add(d.mesh); d.mesh.position.set(d.tx * S, .91 * S, -1.74); d.mesh.scale.set(d.w * .5 * S, d.h * .5 * S, 1); d.mesh.renderOrder = 2; d.mesh.rotation.z = 0; }
   };
   decor.forEach(place);
   const savedOut = () => { try { localStorage.setItem(STORE, JSON.stringify(Object.fromEntries(decor.map(d => [d.id, d.x])))); } catch (e) { return; } };
@@ -143,37 +142,23 @@ export function buildGallery() {
   const shTex = new THREE.CanvasTexture(shC), shGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   const shadow = (s, w) => { const m = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, opacity: s.op * .4, depthWrite: false, fog: false })); m.position.set(0, .004, 0); m.scale.set(w * .85, 1, .45); m.renderOrder = -1; s.group.add(m); s.sh.push(m.material); };
   const setOp = (s, o) => { s.op = o; s.group.visible = o > .001; s.mats.forEach(m => { m.opacity = o; }); s.sh.forEach(m => { m.opacity = o * .4; }); };
-  const PROP = {
-    phone: glowTex('rgba(190,225,255,.9)', 'rgba(190,225,255,0)', x => { rr(x, 26, 20, 12, 22, 3); x.fillStyle = 'rgba(235,248,255,.95)'; x.fill(); }),
-    warm: glowTex('rgba(255,170,80,.9)', 'rgba(255,120,40,0)'), steam: glowTex('rgba(255,255,255,.6)', 'rgba(255,255,255,0)'),
-    book: cv(64, 48, x => { rr(x, 6, 6, 52, 36, 4); wash(x, '#d9c9a8', .95, .4); x.strokeStyle = 'rgba(90,60,40,.5)'; x.lineWidth = 2; x.beginPath(); x.moveTo(32, 8); x.lineTo(32, 40); x.stroke(); }, 0),
-  };
-  /* tiny placeholder props for when the activity art is null: a phone glow, warm hands, steam, a book */
-  const addProp = (s, kind, h) => {
-    const add = (sz, add_, fn) => { const m = new THREE.Mesh(PLANE, new THREE.MeshBasicMaterial({ map: PROP[kind === 'steam' ? 'steam' : kind], transparent: true, opacity: 0, depthWrite: false, fog: false, blending: add_ ? THREE.AdditiveBlending : THREE.NormalBlending, side: THREE.DoubleSide })); m.scale.set(sz[0], sz[1], 1); s.group.add(m); s.props.push({ mesh: m, fn }); return m; };
-    if (kind === 'phone') { const m = add([.4, .4], true, t => .5 + .15 * Math.sin(t * 3)); m.position.set(-.2, h * .55, .03); }
-    else if (kind === 'warm') { const m = add([.8, .8], true, t => .35 + .15 * Math.sin(t * 9) + .08 * Math.sin(t * 13.7)); m.position.set(-.4, h * .45, .08); }
-    else if (kind === 'book') { const m = add([.3, .22], false, () => 1); m.position.set(-.15, h * .53, .03); }
-    else for (let i = 0; i < 3; i++) { const m = add([.3, .3], false, t => { const k = (t * .22 + i / 3) % 1; m.position.set(-.4 + Math.sin(t + i * 2) * .05, h * .58 + k * .5, .05); return .5 * Math.sin(Math.PI * k); }); }
-  };
   async function fillSlot(s, a, who) {
-    const d = a.def; let t = await loadTex(a[who]), h = 1.8, own = !!t;
-    if (!t) { t = await loadTex(PEOPLE[`${who}_stand_${d.face}`]); h = 1.72; }
-    if (!t) { t = await loadTex(PEOPLE[`${who}_${d.face}`]); h = 1.45; }
+    const d = a.def; let t = await loadTex(a[who]), h = 1.75;
+    if (!t) { t = await loadTex(PEOPLE[`${who}_stand_${d.face}`]); h = 1.75; }
+    if (!t) { t = await loadTex(PEOPLE[`${who}_${d.face}`]); h = 1.75; }
     if (!t) return;
     const w = h * t.image.width / t.image.height, mt = pmat(t, s.op); s.mats.push(mt);
     const m = new THREE.Mesh(PLANE, mt); m.scale.set(w, h, 1); m.position.set(-w / 2, 0, 0); s.group.add(m); shadow(s, w);
-    if (!own && d.prop) addProp(s, d.prop, h);
   }
   list.forEach((a, k) => WHO.forEach((who, i) => {
-    const s = { group: new THREE.Group(), mats: [], sh: [], props: [], op: 0 }; s.group.position.set(a.def.x, 0, a.def.z); s.group.visible = false; paint.add(s.group); slots[i][k] = s; fillSlot(s, a, who);
+    const s = { group: new THREE.Group(), mats: [], sh: [], op: 0 }; s.group.position.set(a.def.x, 0, a.def.z); s.group.visible = false; paint.add(s.group); slots[i][k] = s; fillSlot(s, a, who);
   }));
 
   const PH = 2 * Math.tan(camera.fov * Math.PI / 360) * (2.8 + 4.1) * 1.04;
   const WIN = { u: .38, v: .636 };
   /* Letting a fish go: lift it out of the water toward the window (RELEASE, tank-local: above the surface, over the window's side) and let go there. The window glows
      faintly while a fish is held over it (G.glowTo); G.letGo fades the fish up out of the water with a ring on the surface, then removes it. */
-  const RELEASE = { y: .9, x0: -1, x1: .15 }, glowC = document.createElement('canvas'); glowC.width = glowC.height = 64; { const x = glowC.getContext('2d'), g = x.createRadialGradient(32, 32, 4, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(.7, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
+  const RELEASE = { y: SURF - .02, x0: -1, x1: .15 }, glowC = document.createElement('canvas'); glowC.width = glowC.height = 64; { const x = glowC.getContext('2d'), g = x.createRadialGradient(32, 32, 4, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(.7, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowC), color: 0xfff0c8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); let glowGoal = 0;
   const ringGeo = new THREE.RingGeometry(.9, 1, 32).rotateX(-Math.PI / 2), rings = [];
   let plate = null;
@@ -188,7 +173,7 @@ export function buildGallery() {
   const fishGroup = new THREE.Group(); tank.add(fishGroup);
   let fish = [];
   const G = { scene, camera, tank, glass, room, view: 'room', selected: null, onSelect: null, fishMeshes: () => fish.map(f => f.mesh) };
-  const BX = TW / 2 - .22, BY0 = .22, BY1 = TH * .8 - .05, BZ = TD / 2 - .12;
+  const BX = TW / 2 - .22, BY0 = .22, BY1 = SURF - .13, BZ = .12;
   G.setFish = journal => {
     fishGroup.clear(); fish = [];
     journal.forEach(e => {
@@ -233,8 +218,8 @@ export function buildGallery() {
     /* the camera rests in the room; the tank view is a close-up of just the aquarium */
     G.vt = G.vt === undefined ? 0 : G.vt; const goal = G.view === 'tank' ? 1 : 0; G.vt += (goal - G.vt) * Math.min(1, dt * 3.2);
     const v = G.vt * G.vt * (3 - 2 * G.vt), sx = Math.sin(t * .2) * .08;
-    camera.position.set(sx * (1 - v), 1.5 + Math.sin(t * .3) * .02 * (1 - v) - .1 * v, 2.8 + (-0.05 - 2.8) * v);
-    camera.lookAt(0, 1.25 + .12 * v, -1.8);
+    camera.position.set(sx * (1 - v), 1.5 + Math.sin(t * .3) * .02 * (1 - v) - .4 * v, 2.8 + (-1.8 + 1.75 * S - 2.8) * v);
+    camera.lookAt(0, 1.05, -1.8);
     camera.fov = 50 + (44 - 50) * v; camera.updateProjectionMatrix();
     if (plate) plate.scale.setScalar((camera.position.z + 4.1) / (2.8 + 4.1));
     WHO.forEach((_, i) => {
@@ -244,8 +229,7 @@ export function buildGallery() {
       if (st.next >= 0) { st.f = Math.min(1, st.f + dt / 1.8); setOp(slots[i][st.cur], 1 - st.f); setOp(slots[i][st.next], st.f); if (st.f >= 1) { st.cur = st.next; st.next = -1; } }
       [st.cur, st.next].forEach(k => {
         const s = k >= 0 && slots[i][k]; if (!s || !s.group.visible) return; const d = list[k].def, ph = i * 2 + k;
-        s.group.rotation.z = (d.base || 0) + Math.sin(t * .7 + ph) * d.amp; s.group.scale.y = 1 + Math.sin(t * 1.2 + ph) * .005;
-        s.props.forEach(p => { p.mesh.material.opacity = p.fn(t) * s.op; });
+        s.group.rotation.z = (d.base || 0) + Math.sin(t * .7 + ph) * d.amp;
       });
     });
     tc.set(0xffffff).lerp(NIGHTC, night * .65); tintMats.forEach(m => m.color.copy(tc));
@@ -253,7 +237,7 @@ export function buildGallery() {
     scene.background.set(0x2a2018).lerp(new THREE.Color(0x120e0a), night); scene.fog.color.copy(scene.background);
     tank.rotation.z = Math.sin(t * .6) * .02; tank.position.x = Math.sin(t * .6) * .01;
     decor.forEach((d, i) => { if (d.id === 'plant' && d.x !== null) d.mesh.rotation.z = Math.sin(t * 1.3 + i) * .08; });
-    for (let i = 0; i < BN; i++) { const s = (bseed[i] + t * .12 * (.6 + bseed[(i + 3) % BN])) % 1; bpos[i * 3] = .1 + Math.sin(s * 12 + i) * .04; bpos[i * 3 + 1] = .2 + s * (TH * .8 - .1); bpos[i * 3 + 2] = -.2; }
+    for (let i = 0; i < BN; i++) { const s = (bseed[i] + t * .12 * (.6 + bseed[(i + 3) % BN])) % 1; bpos[i * 3] = .1 + Math.sin(s * 12 + i) * .04; bpos[i * 3 + 1] = .2 + s * (SURF - .3); bpos[i * 3 + 2] = -.2; }
     bg.attributes.position.needsUpdate = true;
     glow.material.opacity += (glowGoal * .55 * (.85 + .15 * Math.sin(t * 4)) - glow.material.opacity) * Math.min(1, dt * 6);
     for (let i = rings.length; i--;) { const r = rings[i], k = (now - r.t0) / 1400; if (k >= 1) { tank.remove(r.m); r.m.material.dispose(); rings.splice(i, 1); continue; } r.m.scale.setScalar(.05 + k * .45); r.m.material.opacity = .7 * (1 - k); }
