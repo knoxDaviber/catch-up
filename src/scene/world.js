@@ -161,8 +161,8 @@ export function buildWorld(scene) {
   const tile = (m, path, rx, ry, wrap = THREE.RepeatWrapping) => loadTex(path).then(t => { if (!t) return; t = t.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = wrap; t.repeat.set(rx, ry); const a = m.material.alphaMap;
     m.material = a ? soft(m === bank ? 0xe6dfcf : 0xffffff, a) : new THREE.MeshLambertMaterial({ map: t }); m.material.map = t;
     if (m === bank) m.material.onBeforeCompile = sh => { sh.uniforms.wT = W.water.wT; sh.fragmentShader = 'uniform float wT;\n' + sh.fragmentShader.replace('#include <alphamap_fragment>', LAP); }; });
-  // 6 x 4 m grass tiles, mirrored to hide the seams; one path tile across; the bank (no art of its own yet) borrows the path's, about 5 m a tile and a little muted
-  tile(ground, ART.ground.grass, 220 / 6, 30, THREE.MirroredRepeatWrapping); tile(path, ART.ground.path, 1, 26 / 2.6); tile(bank, ART.ground.path, 220 / 5, 4.4 / 5, THREE.MirroredRepeatWrapping);
+  // 6 x 4 m grass tiles, mirrored to hide the seams; one path tile across; the bank has its own tile (the path's if null), about 5 m a tile and a little muted
+  tile(ground, ART.ground.grass, 220 / 6, 30, THREE.MirroredRepeatWrapping); tile(path, ART.ground.path, 1, 26 / 2.6); tile(bank, ART.ground.bank || ART.ground.path, 220 / 5, 4.4 / 5, THREE.MirroredRepeatWrapping);
 
   // mountains and the far tree line
   const far = [];

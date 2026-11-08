@@ -195,6 +195,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 .stage.intro .tag,.stage.intro .keys,.stage.intro .chip{display:none}
 .stage.ingame .tag{left:11%}
 .logo{position:absolute;left:50%;top:7%;transform:translateX(-50%);text-align:center;pointer-events:none;width:90%}
+#intro .logo{display:flex;flex-direction:column;justify-content:center;align-items:center;aspect-ratio:2.25;width:min(57%,760px);top:3%;container-type:inline-size;white-space:nowrap}#intro .lart{position:absolute;inset:0;width:100%;height:100%;z-index:-1}#intro .logo h1{font-size:10cqw}#intro .logo p{font-size:3cqw}
 .logo h2{font-family:var(--font-display);font-weight:400;margin:0;font-size:clamp(46px,10vw,110px);line-height:1;color:#3A3228;text-shadow:0 0 .35em rgba(251,244,230,.95),0 0 .12em rgba(251,244,230,.9),0 .03em 0 rgba(251,244,230,.8)}
 .logo p{font-family:var(--font-display);margin:.1em 0 0;font-size:clamp(16px,3vw,30px);color:#4A3F33;text-shadow:0 0 .5em rgba(251,244,230,.95),0 0 .2em rgba(251,244,230,.9)}
 .menu{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);display:flex;flex-direction:column;gap:.45em;align-items:center}

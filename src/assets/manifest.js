@@ -51,7 +51,7 @@ export const FISH_ART = {
   // made from the author's pictures by tools/art-jobs.json (the jobs whose out starts with ../fish/)
   guppy: 'assets/fish/guppy.png', mosquitofish: 'assets/fish/mosquitofish.png', gudgeon: 'assets/fish/gudgeon.png', rainbowfish: 'assets/fish/rainbowfish.png', goldfish: 'assets/fish/goldfish.png',
   spangled_perch: 'assets/fish/spangled_perch.png', perch: 'assets/fish/perch.png', lamplighter: 'assets/fish/lamplighter.png', bony_bream: 'assets/fish/bony_bream.png', silver_perch: 'assets/fish/silver_perch.png',
-  mullet: 'assets/fish/mullet.png', tench: null, bass: null, golden_perch: 'assets/fish/golden_perch.png', koi: 'assets/fish/koi.png', trout: 'assets/fish/trout.png', brown_trout: null,
+  mullet: 'assets/fish/mullet.png', tench: 'assets/fish/tench.png', bass: 'assets/fish/bass.png', golden_perch: 'assets/fish/golden_perch.png', koi: 'assets/fish/koi.png', trout: 'assets/fish/trout.png', brown_trout: 'assets/fish/brown_trout.png',
   carp: 'assets/fish/carp.png', eel: 'assets/fish/eel.png', catfish: 'assets/fish/catfish.png', murray_cod: 'assets/fish/murray_cod.png',
 };
 
@@ -79,5 +79,5 @@ export const ART = {
   gallery: { backdrop: A + 'gallery/interior.jpg', activities: [{ id: 'couch', src: null }, { id: 'phone', src: null }, { id: 'cards', src: null }, { id: 'kettle', src: null }, { id: 'window', src: null }] },
   // ground scatter (transparent, sliced from one sheet): rocks, pebbles and grass dotted along the shore, the path and the feet of trees and buildings. An empty list skips that kind.
   scatter: { boulder: N('boulder', 4), rock: N('rock', 6), pebble: N('pebble', 18), tuft: N('tuft', 6), clump: N('clump', 3), bush: N('bush', 4), flowers: N('flowers', 4) },
-  ground: { grass: A + 'ground/grass.jpg', path: A + 'ground/path.jpg', water: A + 'ground/water.jpg' },   // tileable; water tiles the lake under the day/night lake colour
+  ground: { grass: A + 'ground/grass.jpg', path: A + 'ground/path.jpg', bank: A + 'ground/bank.jpg', water: A + 'ground/water.jpg' },   // tileable; water tiles the lake under the day/night lake colour
 };
