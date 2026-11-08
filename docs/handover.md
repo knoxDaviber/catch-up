@@ -31,7 +31,8 @@ Updated 2026-11-09. The design doc is `docs/design.md`; the story canon is `stor
   - the gallery interior redesign, tank, table, ornaments and 12 activity sprites (spec in the README)
   - a PWA icon
   - real sound effects and ambience
-- **Xiao's playable side** (story and pick screen).
+- **Xiao's playable side** (story and pick screen). Scaffold done: locked until Liam's story ends (`xiaoUnlocked`), `HARD` fishing profile in `fishing.js`. Still to do: write part 2 (`docs/xiao_p2_outline.md` is a draft).
+- **Xiao p2** (dark, horror, much harder fishing): story not written; tune `HARD` in `fishing.js` by feel; unlock and difficulty untested in a browser.
 - **Optional:** convert the art to WebP (the art folder is about 40 MB or more).
 
 ## Open decisions / unchecked

@@ -41,12 +41,15 @@ export const bobberPos = px => [px * 1.15, 0, -8.6];
 /** Rod tip (world) for a seat at x = px, matching the model in world.js. */
 export const rodTip = px => [px + .1, 2.2, -2.24];
 
+/** Difficulty profiles, chosen by pov (F.setPov). Tune Xiao's part 2 here: wait/win/nibGap scale the timings, nibs adds nibbles before a bite, bite is the chance a nibbling fish actually bites, escape is the chance a hooked fish slips off, force makes every hooked fish fight, fight scales fight.js (speed, zone size, gain, slip, duration). */
+export const NORMAL = { wait: 1, win: 1, nibs: 0, nibGap: 1, bite: .65, escape: 0, force: false, fight: { speed: 1, zone: 1, gain: 1, slip: 1, dur: 1 } };
+export const HARD = { wait: 1.5, win: .5, nibs: 2, nibGap: 1.4, bite: .45, escape: .15, force: true, fight: { speed: 1.25, zone: .75, gain: .8, slip: 1.35, dur: .8 } };
 const JKEY = 'catchup.journal.v1';
 export function createFishing(hooks) {
   const sfx = n => hooks.sfx && hooks.sfx(n);
   // hooks: { say(who, text, ms), line(key, vars), friend(), mySeatX(), onBite(), onMiss(), onCatch(caught), onChange() }
   const F = {
-    challenge: false, fighting: false, night: 0,
+    challenge: false, fighting: false, night: 0, prof: NORMAL,
     fish: [], ripples: [], journal: [], bite: false, catchOpen: false, caught: null, splashT: -1e9, auto: true, stowed: false,
     rod: { land: null, phase: 'wait', nextAt: 0, fish: null, nibs: 0, nibT: 0, dipUntil: 0, winEnd: 0, t0: 0, dur: 2000, nextRip: 0, until: 0, quick: false, cur: { x: 0, y: 0, z: 0 } },
     fr: { nextAt: 0, dipUntil: 0 }, bait: { until: 0, cool: 0 }, power: 0,
@@ -81,7 +84,8 @@ export function createFishing(hooks) {
     f.mode = 'flee'; f.fleeEnd = now + 2200;
     const ang = Math.atan2(f.z - z, f.x - x); f.tx = f.x + Math.cos(ang) * 6; f.tz = f.z + Math.sin(ang) * 6 - 1;
   }
-  const wait = (now, a, b) => { R.phase = 'wait'; R.nextAt = now + (a + rnd() * (b - a)) * (baited(now) ? .35 : 1); };
+  const wait = (now, a, b) => { R.phase = 'wait'; R.nextAt = now + (a + rnd() * (b - a)) * F.prof.wait * (baited(now) ? .35 : 1); };
+  F.setPov = p => { F.prof = p === 'xiao' ? HARD : NORMAL; };
   F.reset = () => {
     F.fish.forEach(f => { if (f.mode !== 'wander') { f.mode = 'wander'; f.retarget = 0; } });
     R.fish = null; R.land = null; F.power = 0; F.bait.until = F.bait.cool = 0; wait(performance.now(), 15000, 25000); F.bite = false; F.stowed = false; F.fighting = false; F.catchOpen = false; F.caught = null;
@@ -150,14 +154,14 @@ export function createFishing(hooks) {
       if (!f || f.mode !== 'approach') wait(now, 6000, 9000);
       else if (Math.hypot(f.x - fl.x, f.z - fl.z) < .55) {
         // the "!" moment: a few slow nibbles, long enough to wander over from the board and watch
-        R.phase = 'tease'; f.mode = 'tease'; R.nibs = R.quick ? 1 : 3 + Math.floor(rnd() * 3); R.nibT = now + 400;
+        R.phase = 'tease'; f.mode = 'tease'; R.nibs = R.quick ? 1 : 3 + Math.floor(rnd() * 3) + F.prof.nibs; R.nibT = now + 400;
         hooks.onNibble && hooks.onNibble(); hooks.onChange();
       }
       else if (now > R.until) { fleeFrom(f, fl.x, fl.z, now); wait(now, 6000, 9000); }
     } else if (R.phase === 'tease') {
       if (now >= R.nibT) {
-        if (R.nibs > 0) { R.nibs--; R.dipUntil = now + 380; R.nibT = now + 1100 + rnd() * 900; F.ripple(fl.x, fl.z, .08, .4, 700, now); sfx('nibble'); }
-        else if (R.quick || rnd() < (baited(now) ? .85 : .65)) { R.phase = 'bite'; f.mode = 'bite'; R.winEnd = now + 4500; R.nextRip = now; F.bite = true; sfx('bite'); hooks.onBite && hooks.onBite(); hooks.onChange(); }
+        if (R.nibs > 0) { R.nibs--; R.dipUntil = now + 380; R.nibT = now + (1100 + rnd() * 900) * F.prof.nibGap; F.ripple(fl.x, fl.z, .08, .4, 700, now); sfx('nibble'); }
+        else if (R.quick || rnd() < (baited(now) ? .85 : F.prof.bite)) { R.phase = 'bite'; f.mode = 'bite'; R.winEnd = now + 4500 * F.prof.win; R.nextRip = now; F.bite = true; sfx('bite'); hooks.onBite && hooks.onBite(); hooks.onChange(); }
         else { fleeFrom(f, fl.x, fl.z, now); wait(now, 20000, 40000); hooks.onLeave && hooks.onLeave(); hooks.onChange(); }
       }
     } else if (R.phase === 'bite') {
@@ -189,7 +193,8 @@ export function createFishing(hooks) {
   function hook(now) {
     const fi = R.fish; F.bite = false; fi.mode = 'hooked';
     F.ripple(R.cur.x, R.cur.z, .1, 1.1, 900, now); sfx('splash');
-    if (F.challenge && hooks.fight && fi.kind.diff >= .15) {   // tiddlers just come in
+    if (rnd() < F.prof.escape) { const fl = myFloat(), t = performance.now(); fleeFrom(fi, fl.x, fl.z, t); R.phase = 'wait'; R.nextAt = t + (8000 + rnd() * 6000) * F.prof.wait; hooks.say(hooks.friend(), hooks.line('fightLose'), 3500); hooks.onChange(); return; }
+    if ((F.challenge || F.prof.force) && hooks.fight && fi.kind.diff >= .15) {   // tiddlers just come in
       R.phase = 'fight'; R.nextRip = now; F.fighting = true;
       hooks.say(hooks.friend(), hooks.line('fightStart'), 3500);
       hooks.fight(fi.kind, ok => {

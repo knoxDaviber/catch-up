@@ -315,7 +315,7 @@ function openTopics() { if (canTalk()) { clearCaptions(); playInk('talk'); } }
 // once everything's been talked through, the story's ending plays (once a trip); after "stay", idle moments are just small talk
 function idleMoment() {
   const S = ink(), barkIdle = () => bark(Math.random() < .2 ? 'idleAny' : view === 'board' ? 'idleChess' : 'idleFish', {}, 4500);
-  if (S && !talking && !storyEnded && !stayed && S.has('story_end') && S.call('story_done')) { playInk('story_end', played => { if (played) { storyEnded = true; saveTrip(); } }); return; }
+  if (S && !talking && !storyEnded && !stayed && S.has('story_end') && S.call('story_done')) { playInk('story_end', played => { if (played) { storyEnded = true; unlockXiao(); saveTrip(); } }); return; }
   if (stayed) barkIdle(); else playInk('idle', played => { if (!played) barkIdle(); });
 }
 /** A heavy beat: hold the chips, the rod and the board, look across at the friend, soften the edges. Ends with the passage. */
@@ -501,9 +501,14 @@ function blackout(mid, hold) {
   $('fade').classList.add('on');
   setTimeout(() => { try { mid(); } finally { setTimeout(() => $('fade').classList.remove('on'), hold); } }, 800);   // never stuck on black
 }
+const xiaoUnlocked = () => !!(settings.xiaoUnlocked || settings.ngplus);   /* an old save that already finished once (New game+) counts */
+function unlockXiao() { if (settings.xiaoUnlocked) return; settings.xiaoUnlocked = true; saveSettings(settings); refreshPick(); }
+function refreshPick() { const b = $('pickXiao'), on = xiaoUnlocked(); b.disabled = !on; b.setAttribute('aria-label', on ? 'Xiao' : "Xiao, locked. Finish Liam's trip first."); b.innerHTML = on ? 'Xiao' : 'Xiao <small>&middot; finish Liam&rsquo;s trip first</small>'; }
+refreshPick();
 function startPick(p) {
   if (scene_ !== 'select') return;
-  audio.sfx('grunt'); player = p; myColor = 'b'; rig.side = side(); setScene('sit'); say(nameOf(p), '*heave-ho*', 1700);
+  if (p === 'xiao' && !xiaoUnlocked()) return;
+  audio.sfx('grunt'); player = p; fishing.setPov(p); myColor = 'b'; rig.side = side(); setScene('sit'); say(nameOf(p), '*heave-ho*', 1700);
   blackout(() => {
     rig.selTarget = 0; rig.sel = 0; rig.tween = null; rig.wide = 0; rig.u = 0; view = 'fish';
     newGame(); fishing.reset(); rig.sitT = performance.now(); gameStart = performance.now(); nextIdle = gameStart + 60000; castReminded = false; adaptDeclined = false; chessBetterDone = false; catchesHere = 0; fightLosses = 0; easyOffered = false; setScene('game');
@@ -661,13 +666,13 @@ function afterFight(ok) {
   fightLosses = ok ? 0 : fightLosses + 1;
   if (fightLosses < 3 || easyOffered) return; easyOffered = true;
   later(() => {
-    if (!settings.challenge) return;
+    if (!settings.challenge || fishing.prof.force) return;
     ask(line(fk(), 'easyAsk'), [['Yeah, go easy', () => { setChallenge(false); bark('easyOn', {}, 3500); }], ["No, I've got this", () => bark('easyKeep', {}, 3500)]], { ms: 16000 });
   }, 4200);
 }
 function startFight(kind, done) {
   $('ffish').style.background = kind.col; $('ffish').style.color = kind.col; $('fwho').textContent = `Keep it in the light. This one's ${fight.label(kind)}.`; $('fight').hidden = false; updateUI();
-  fight.start(kind, ok => { $('fight').hidden = true; done(ok); afterFight(ok); updateUI(); });
+  fight.start(kind, ok => { $('fight').hidden = true; done(ok); afterFight(ok); updateUI(); }, fishing.prof.fight);
 }
 function updateFight(dt) {
   if (!fight.active) return;
@@ -898,4 +903,4 @@ function frame(now) {
 }
 useLayout(loadTrip()?.layout); newGame(); rig.wide = 1; rig.side = 1; setScene('title');
 requestAnimationFrame(frame);
-window.__cu = { critter: k => lakeUpdate.force(k), world, takeBack, askHint, msg, ask, newGame, fight, gallery, openGallery, audio, dayNight, campfire, settings, inks, playInk, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say, saveTrip, loadTrip, useLayout, setFocus, setStowed, quitToTitle, idleMoment, ink };
+window.__cu = { critter: k => lakeUpdate.force(k), world, takeBack, askHint, msg, ask, newGame, fight, gallery, openGallery, audio, dayNight, campfire, settings, unlockXiao: () => { settings.xiaoUnlocked = true; saveSettings(settings); refreshPick(); }, inks, playInk, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say, saveTrip, loadTrip, useLayout, setFocus, setStowed, quitToTitle, idleMoment, ink };

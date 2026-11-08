@@ -15,12 +15,13 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), rnd = Math.random;
 export function createFight() {
   const S = { active: false, zone: .5, zw: .3, fish: .5, prog: .35, done: null, kind: null, inside: false };
   let t = 0, target = .5, retarget = 0, speed = 1, dur = 16, zw0 = .3, zw1 = .1, gain = .26, slip = .2, st = STYLES.darter;
-  S.start = (kind, onEnd) => {
+  S.start = (kind, onEnd, prof) => {
+    const m = { speed: 1, zone: 1, gain: 1, slip: 1, dur: 1, ...prof };
     const d = kind.diff ?? kind.len; st = STYLES[kind.style] || STYLES.darter;
     S.active = true; S.kind = kind; S.done = onEnd; S.prog = .3; S.zone = .5; S.fish = .5; t = 0; retarget = 0;
-    speed = .7 + d * 1.8; dur = 10 + d * 14;
-    zw0 = .34 - d * .08; zw1 = .17 - d * .06; S.zw = zw0;
-    gain = .15 - d * .03; slip = (.06 + d * .08) * (st.drag || 1);
+    speed = (.7 + d * 1.8) * m.speed; dur = (10 + d * 14) * m.dur;
+    zw0 = (.34 - d * .08) * m.zone; zw1 = (.17 - d * .06) * m.zone; S.zw = zw0;
+    gain = (.15 - d * .03) * m.gain; slip = (.06 + d * .08) * (st.drag || 1) * m.slip;
   };
   /** A word for how hard this one is, for the hint above the bar. */
   S.label = kind => { const d = kind.diff ?? kind.len; return d < .3 ? 'an easy one' : d < .6 ? 'putting up a fight' : d < .85 ? 'a real fighter' : 'a monster'; };
