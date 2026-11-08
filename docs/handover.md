@@ -4,6 +4,8 @@ Updated 2026-11-09. The design doc is `docs/design.md`; the story canon is `stor
 
 ## Done (latest rounds)
 
+- **Polish round (Nov 9):** focus beats turn the board view to the friend (`rig.lookAtFriend`); critters: frog (dusk/night) replaces the possum and the wren now flies in, pecks and flies off (`__cu.critter("frog"|"wren")`); campfire smoke wisps; new synth sfx (cast, plop, reelclick, croak, wooden tock for move/capture). Unchecked by eye in 3D.
+
 - **New art batch (Nov 9):**
   - new day and night skies and far shore
   - a lake bank texture (no more orange band)

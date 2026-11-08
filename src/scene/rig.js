@@ -35,6 +35,13 @@ export class CameraRig {
     this.u = 0; this.wide = 1; this.sel = 0; this.selTarget = 0; this.side = 1;
     this.mode = 'title'; this.tween = null; this.sitT = -1; this.sway = true; this.tilt = true;
     this.look = { yaw: 0, pitch: 0 }; this.lookTarget = { yaw: 0, pitch: 0 };   // free head movement while fishing (radians)
+    this.boardLook = { yaw: 0, pitch: 0 }; this.boardLookTarget = { yaw: 0, pitch: 0 };   // glance at the friend from the board view (radians)
+  }
+  /** Turns the board view's gaze to the friend (on) or back to the board (off), as a gentle ease. */
+  lookAtFriend(on) {
+    if (!on) { this.boardLookTarget = { yaw: 0, pitch: 0 }; return; }
+    const s = this.side, a = rigPose(1, s), E = a.pos, F = [s * SEAT_X, HEAD_Y, .2];
+    this.boardLookTarget = { yaw: Math.atan2(F[0] - E[0], -(F[2] - E[2])) - a.yaw, pitch: -Math.atan2(E[1] - F[1], Math.hypot(F[0] - E[0], F[2] - E[2])) - a.pitch };
   }
   goTo(view, seconds = 2.8, onDone) {
     const u1 = view === 'board' ? 1 : view === 'fish' ? 0 : this.u, w1 = view === 'wide' ? 1 : 0;
@@ -62,6 +69,8 @@ export class CameraRig {
     lk.yaw += (lt.yaw - lk.yaw) * k; lk.pitch += (lt.pitch - lk.pitch) * k;
     const lw = (1 - ease(clamp(this.u * 2.5, 0, 1))) * (1 - m) * (1 - sm);
     p.yaw += lk.yaw * lw; p.pitch += lk.pitch * lw;
+    const bl = this.boardLook, bt = this.boardLookTarget, bw = ease(clamp((this.u - .5) * 2, 0, 1)) * (1 - m) * (1 - sm), bk = Math.min(1, dt * 1.6);
+    bl.yaw += (bt.yaw - bl.yaw) * bk; bl.pitch += (bt.pitch - bl.pitch) * bk; p.yaw += bl.yaw * bw; p.pitch += bl.pitch * bw;
     if (this.sitT > 0) { const se = 1 - ease(clamp((now - this.sitT) / 2400, 0, 1)); p.pos[1] += .5 * se; p.pitch -= .1 * se; p.pos[2] += .15 * se; }
     if (this.sway) { p.yaw += Math.sin(now / 2100) * .011 * (1 - m * .6); p.pitch += Math.sin(now / 1700 + 1) * .007; p.pos[1] += Math.sin(now / 2600) * .008 * (1 - m); }
     const c = this.camera; c.position.set(...p.pos); c.rotation.set(p.pitch, -p.yaw, p.roll); c.fov = p.hfov / c.aspect > 0 ? this.vfov(p.hfov) : 60; c.updateProjectionMatrix();

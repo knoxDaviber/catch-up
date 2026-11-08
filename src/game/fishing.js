@@ -112,7 +112,7 @@ export function createFishing(hooks) {
   F.cast = power => {
     if (R.phase !== 'out') return; const p = power == null ? null : clamp(power, 0, 1);
     R.land = p == null ? null : [hooks.mySeatX() * (1.15 + .35 * p), 0, lerp(-7.6, -14, p)]; F.power = p || 0;
-    R.phase = 'cast'; R.t0 = performance.now(); R.dur = 900 + 450 * (p || 0); sfx('reel'); hooks.onChange();
+    R.phase = 'cast'; R.t0 = performance.now(); R.dur = 900 + 450 * (p || 0); sfx('cast'); hooks.onChange();
   };
   F.stepFish = (dt, now) => {
     const fl = myFloat();
@@ -145,7 +145,7 @@ export function createFishing(hooks) {
     if (R.phase === 'wait') {
       if (F.auto && !F.catchOpen && now > R.nextAt) F.startEvent(now, false);
     } else if (R.phase === 'cast') {
-      if (now - R.t0 >= R.dur) { F.ripple(fl.x, fl.z, .1, .8, 900, now); sfx('splash'); wait(now, 20000, 45000); hooks.onChange(); }
+      if (now - R.t0 >= R.dur) { F.ripple(fl.x, fl.z, .1, .8, 900, now); sfx('plop'); wait(now, 20000, 45000); hooks.onChange(); }
     } else if (R.phase === 'approach') {
       if (!f || f.mode !== 'approach') wait(now, 6000, 9000);
       else if (Math.hypot(f.x - fl.x, f.z - fl.z) < .55) {
@@ -215,7 +215,7 @@ export function createFishing(hooks) {
     F.catchOpen = true; const k = f.kind, e = F.journal.find(j => j.id === k.id);
     const pool = NICKS.slice(), names = []; for (let i = 0; i < 3; i++) names.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
     F.caught = { kind: k, size: Math.round(k.len * 100 * (.85 + rnd() * .3)), before: e ? e.n + (e.freed || 0) : 0, names };
-    F.splashT = now; F.ripple(R.cur.x, R.cur.z, .1, 1.2, 1100, now); sfx('catch'); hooks.onCatch(F.caught);
+    F.splashT = now; F.ripple(R.cur.x, R.cur.z, .1, 1.2, 1100, now); sfx('splash'); sfx('catch'); hooks.onCatch(F.caught);
   }
   /** A kept fish goes from the cabin tank back to the lake: one fewer kept (n), one more freed, its nickname (if it had one) gone. False if there was none to let go. */
   F.letGo = (id, nick) => { const e = F.journal.find(j => j.id === id); if (!e || !(e.n > 0)) return false; e.n--; e.freed = (e.freed || 0) + 1;

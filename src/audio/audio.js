@@ -47,11 +47,16 @@ export function createAudio(settings) {
     s.buffer = noiseBuf; s.loop = true; f.type = type; f.frequency.setValueAtTime(freq, t); if (sweep) f.frequency.exponentialRampToValueAtTime(Math.max(40, freq + sweep), t + dur); f.Q.value = q;
     env(g, t, attack, dur, vol); s.connect(f); f.connect(g); g.connect(dest); s.start(t, Math.random()); s.stop(t + attack + dur + .05);
   }
+  const tock = (f, delay, vol) => { tone(f, .1, { vol, slide: -f * .3, delay, attack: .003 }); tone(f * 2.1, .04, { type: 'triangle', vol: vol * .3, delay, attack: .002 }); noise(.03, { freq: 1300, type: 'bandpass', q: 1, vol: vol * .4, delay, attack: .002 }); };
   const SYN = {
     click: () => tone(1200, .05, { type: 'triangle', vol: .12 }),
     select: () => { tone(520, .08, { type: 'triangle', vol: .18 }); tone(780, .1, { type: 'sine', vol: .1, delay: .03 }); },
-    move: () => { noise(.07, { freq: 900, vol: .35 }); tone(180, .09, { type: 'sine', vol: .3, slide: -60 }); },
-    capture: () => { noise(.1, { freq: 1400, vol: .4 }); tone(150, .14, { type: 'triangle', vol: .35, slide: -70 }); tone(110, .16, { type: 'sine', vol: .25, delay: .04 }); },
+    move: () => tock(300, 0, .22),
+    capture: () => { tock(300, 0, .22); tock(240, .12, .2); },
+    cast: () => { noise(.38, { freq: 500, type: 'bandpass', q: .9, vol: .12, attack: .14, sweep: 1700 }); noise(.2, { freq: 2200, type: 'bandpass', q: .8, vol: .04, attack: .08, delay: .22, sweep: -1200 }); },
+    plop: () => { tone(300, .11, { vol: .16, slide: 260 }); noise(.14, { freq: 1500, type: 'bandpass', q: .7, vol: .06, sweep: -700 }); },
+    reelclick: () => { tone(2500, .018, { type: 'square', vol: .022 }); tone(1500, .03, { type: 'triangle', vol: .04, delay: .01 }); },
+    croak: () => [0, .17].forEach(d => { tone(135, .13, { type: 'sawtooth', vol: .02, slide: -35, delay: d, attack: .03 }); tone(270, .11, { vol: .028, slide: -90, delay: d, attack: .03 }); }),
     splash: () => { noise(.45, { freq: 2400, type: 'bandpass', q: .6, vol: .4, sweep: -1500 }); tone(300, .2, { type: 'sine', vol: .15, slide: -150 }); },
     nibble: () => { tone(900, .06, { type: 'sine', vol: .12, slide: -300 }); noise(.12, { freq: 1800, type: 'bandpass', vol: .1 }); },
     bite: () => { tone(660, .12, { type: 'triangle', vol: .3 }); tone(990, .16, { type: 'triangle', vol: .24, delay: .1 }); },

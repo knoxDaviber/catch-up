@@ -18,16 +18,27 @@ export function buildCampfire(scene, x = FIRE[0], z = FIRE[1]) {
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const sparkMat = new THREE.PointsMaterial({ color: 0xffc070, size: 3, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
   const sparks = new THREE.Points(sg, sparkMat); sparks.frustumCulled = false; g.add(sparks);
+  const pc = document.createElement('canvas'); pc.width = pc.height = 64; const px = pc.getContext('2d'), pg = px.createRadialGradient(32, 32, 0, 32, 32, 32);
+  pg.addColorStop(0, 'rgba(255,255,255,.9)'); pg.addColorStop(.5, 'rgba(255,255,255,.35)'); pg.addColorStop(1, 'rgba(255,255,255,0)'); px.fillStyle = pg; px.fillRect(0, 0, 64, 64);
+  const puffTex = new THREE.CanvasTexture(pc), dayC = new THREE.Color(0xeceae4), nightC = new THREE.Color(0xb08a6c), col = new THREE.Color();
+  const puffs = Array.from({ length: 9 }, (_, i) => { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, transparent: true, opacity: 0, depthWrite: false, fog: false })); m.visible = false; g.add(m); return { m, t: i / 9, s: .09 + Math.random() * .05, ph: Math.random() * 6.28, w: .15 + Math.random() * .15 }; });
   let level = 0;
   return {
     /** target is 0 (cold) or 1 (burning); the fire eases toward it. */
-    update(now, dt, target) {
+    update(now, dt, target, night = 0) {
       level += (target - level) * Math.min(1, dt * 1.6);
       const t = now / 1000, on = level > .02, f = .9 + .1 * Math.sin(t * 13) * Math.sin(t * 7.3) + .05 * Math.sin(t * 29);
       flames.forEach((m, i) => { m.visible = on; m.scale.set(level * (1 + .08 * Math.sin(t * (9 + i * 3))), level * f * (1 + .1 * Math.sin(t * (11 + i * 4) + i)), level); m.rotation.y = t * (1 + i); });
       light.intensity = level * 3.6 * f; glowMat.opacity = level * .5 * f; glow.scale.setScalar((2.8 + .3 * f)); sparkMat.opacity = level * .9;
       for (let i = 0; i < N; i++) { const s = seed[i]; s.t += dt * s.s * .5; if (s.t > 1) { s.t = 0; s.a = Math.random() * 6.28; } pos[i * 3] = Math.cos(s.a) * (.1 + s.t * .25) + Math.sin(t * 2 + i) * .06 * s.t; pos[i * 3 + 1] = .3 + s.t * 1.8; pos[i * 3 + 2] = Math.sin(s.a) * (.1 + s.t * .25); }
       sg.attributes.position.needsUpdate = true;
+      col.copy(dayC).lerp(nightC, Math.min(1, night * 1.3));
+      puffs.forEach(q => {
+        q.t += dt * q.s; if (q.t > 1) { q.t = 0; q.ph = Math.random() * 6.28; }
+        const u = q.t, a = Math.sin(Math.PI * Math.min(1, u * 1.15)) * (1 - u * .3);
+        q.m.visible = level > .05 && a > .01; q.m.position.set(Math.sin(t * .7 + q.ph + u * 3.2) * q.w * u * 2.2, .85 + u * 2.8, Math.cos(t * .5 + q.ph) * q.w * u);
+        q.m.scale.setScalar(.25 + u * 1.1); q.m.material.color.copy(col); q.m.material.opacity = a * level * (.2 - .09 * Math.min(1, night * 1.3));
+      });
     },
     get level() { return level; },
   };

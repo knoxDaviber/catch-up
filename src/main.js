@@ -323,8 +323,8 @@ function setFocus(on) {
   if (on) {
     if (!$('tackle').hidden) closeTackle();
     focus = { look: { ...rig.lookTarget } }; fishing.auto = false; setHot(null); lookDrag = null; stage.classList.remove('dragging');
-    if (view === 'fish') { rig.lookTarget.yaw = side() * 50 * D2R; rig.lookTarget.pitch = -6 * D2R; }
-  } else { if (scene_ === 'game' && view === 'fish') Object.assign(rig.lookTarget, focus.look); focus = null; fishing.auto = true; }
+    if (view === 'fish') { rig.lookTarget.yaw = side() * 50 * D2R; rig.lookTarget.pitch = -6 * D2R; } else if (view === 'board') rig.lookAtFriend(true);
+  } else { rig.lookAtFriend(false); if (scene_ === 'game' && view === 'fish') Object.assign(rig.lookTarget, focus.look); focus = null; fishing.auto = true; }
   stage.classList.toggle('focus', !!focus); updateUI();
 }
 /* ---------- the trip: saved on Quit (and when the tab is hidden), resumed next time you sit down ---------- */
@@ -852,13 +852,14 @@ function placePick() {
 }
 
 /* ---------- loop ---------- */
-let last = performance.now(), lastTick = 0;
+let last = performance.now(), lastTick = 0, reelClickT = 0;
 function frame(now) {
   if (hot && fishing.catchOpen) setHot(null);   // no stale hover label over the catch
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   if (now - lastTick > 1000) { lastTick = now; tickTalk(now); audio.setScene(dayNight.night, campfire.level); }
   fishing.night = dayNight.night; rig.step(now, dt); fishing.stepFish(dt, now); if (scene_ === 'game') fishing.stepRod(now); lakeUpdate(now); bait.update(now); world.update(now, camera, rig.u * (1 - rig.wide));
-  dayNight.update(dt); campfire.update(now, dt, settings.fire === 'always' || (settings.fire === 'auto' && dayNight.night > .28) ? 1 : 0);
+  dayNight.update(dt); campfire.update(now, dt, settings.fire === 'always' || (settings.fire === 'auto' && dayNight.night > .28) ? 1 : 0, dayNight.night);
+  if ((fishing.rod.phase === 'reel' || fight.active && fight.inside) && now - reelClickT > 150) { reelClickT = now; audio.sfx('reelclick'); }
   updateDial(); updateFight(dt); board.update(now); placeHotLabel(); placeWind(); placeTackle();
   stage.classList.toggle('night', dayNight.night > .5);
   syncPeople(); if (scene_ === 'select') placePick();
@@ -867,4 +868,4 @@ function frame(now) {
 }
 useLayout(loadTrip()?.layout); newGame(); rig.wide = 1; rig.side = 1; setScene('title');
 requestAnimationFrame(frame);
-window.__cu = { world, takeBack, askHint, msg, ask, newGame, fight, gallery, openGallery, audio, dayNight, campfire, settings, inks, playInk, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say, saveTrip, loadTrip, useLayout, setFocus, setStowed, quitToTitle, idleMoment, ink };
+window.__cu = { critter: k => lakeUpdate.force(k), world, takeBack, askHint, msg, ask, newGame, fight, gallery, openGallery, audio, dayNight, campfire, settings, inks, playInk, openTopics, fishing, state: () => ({ myColor, plies, scene: scene_ }), offerRematch, scene: () => scene_, rig, camera, game: () => game, onSquare, say, saveTrip, loadTrip, useLayout, setFocus, setStowed, quitToTitle, idleMoment, ink };
