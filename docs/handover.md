@@ -4,6 +4,8 @@ Updated 2026-11-09. The design doc is `docs/design.md`; the story canon is `stor
 
 ## Done (latest rounds)
 
+- **Playtest fixes (Nov 9):** lossy WebP art reverted to the original PNG/JPG (fidelity loss; rule in CLAUDE.md: no lossy re-encode without an approved side-by-side check). Music stays OGG. Sky top no longer streaks (fades to the plate's top colour above ~27°). Clouds are world-space quads facing the camera, so they no longer slide against the wide-angle sky when looking around (author confirmed fixed); drift slowed 11x. Real ambience/sfx from `G:\Game Assets` (credits in `public/assets/README.md`), retuned quiet and sparse, no birds at night, rare distant owl.
+- **Liam story draft (Nov 9):** voice pass and new beats in `liam.ink` (sedan photo, one text home per trip, declined cigarette, apology, asking for help, cabin plan). Invented canon awaiting approval: `docs/liam_rewrite_notes.md`.
 - **Nov 9, batch 2 (bug fixes):** gallery note hidden whenever the scene leaves `gallery` (`setScene`); corrupt `catchup.tank.v1` (non-object) no longer breaks import; `board.pick(ray, legal)` prefers a legal target square over a piece card leaning onto it; `__cu.critter("dragonfly")` falls back to a frog when the texture is missing.
 - **Flat chess + camp clicks (Nov 9):** board and pieces are flat painted canvas art (manifest `ART.board`, null = drawn in code), the stump is the stump cutout, the fire's logs are painted cards (`ART.props.logs`). New clickable camp things: cooler (lid, can, crack), campfire poke, lantern switch, tent, cairn; each gives a cooled-down friend line (`lines.js`). Voice hook: `#vo:<id>` plays `VO[id]` (voice bus, Settings "Voices" slider). Next: real art per `public/assets/README.md`; check the knight's facing and the cooler lid card by eye.
 
@@ -31,10 +33,11 @@ Updated 2026-11-09. The design doc is `docs/design.md`; the story canon is `stor
 - **Art** (list in `public/assets/README.md`):
   - the gallery interior redesign, tank, table, ornaments and 12 activity sprites (spec in the README)
   - a PWA icon
-  - real sound effects and ambience
+  - remaining sounds with no library match yet (reel, can open, frog, door, page turns)
 - **Xiao's playable side** (story and pick screen). Scaffold done: locked until Liam's story ends (`xiaoUnlocked`), `HARD` fishing profile in `fishing.js`. Still to do: write part 2 (`docs/xiao_p2_outline.md` is a draft).
 - **Xiao p2** (dark, horror, much harder fishing): story not written; tune `HARD` in `fishing.js` by feel; unlock and difficulty untested in a browser.
-- **Optional:** convert the art to WebP (the art folder is about 40 MB or more).
+- **Size (optional):** art is ~56 MB. Only re-encode with an in-game side-by-side check the author approves (e.g. lossless WebP or 4:4:4 high quality).
+- **Author review:** Liam rewrite + invented canon, Xiao p2 outline, sound levels by ear, frog/wren/smoke/gallery activity positions by eye.
 
 ## Open decisions / unchecked
 
