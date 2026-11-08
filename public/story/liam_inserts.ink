@@ -1,4 +1,4 @@
-// Catch Up: light inserts for Liam's side. Draft 2.
+// Catch Up: light inserts for Liam's side. Draft 3 (adds text_home, smoke, me_time).
 // Random small moments for quiet stretches. `idle` in the main file picks between these and a new topic.
 // Each one plays at most once per trip. Add more freely; keep them short, three to six bubbles.
 
@@ -119,5 +119,76 @@ That shark movie. First year. You screamed. #xiao
 * [That was you.] That was you screaming. I remember it very differently. #liam
     I've never screamed in my life. #xiao
     He has. You were there. #beat
+-
+-> DONE
+
+
+=== text_home ===
+// Liam texts his family about once a trip (the var is saved with the trip, so it never fires twice).
+{texted_home: -> DONE}
+~ texted_home = true
+Liam's phone buzzes on the arm of the chair. He glances at it. Then glances again. #beat
+Mary. "Dad's had his tablets. Missy fell asleep in the laundry basket AGAIN. Have fun x" #beat
+* [Show Xiao.] She's in the basket again. Look. Look at her. #liam
+    Xiao looks. Properly. #beat
+    She's got your chin. #xiao
+    Poor kid. #liam
+* [Quick reply.] Right. Just a quick one back. Sorry. Two secs. #liam
+    Take your time. #xiao
+    Liam types with both thumbs, deletes it, types it again. "Fine. Fish: none. Love you all." #beat
+    That's a lot of words for "none." #xiao
+    I'm a communicator. #liam
+-
+Liam puts the phone face-down on his knee. Then face-up. Then down again. #beat
+Missing them already? #xiao
+* [Obviously.] Yeah. Obviously. Ridiculous, isn't it. I've been gone about four hours. #liam
+* [Not at all.] Nope. Not even a bit. Just checking they haven't burned the house down. #liam
+    You're smiling. #xiao
+    It's gas. #liam
+-
+-> DONE
+
+
+=== smoke ===
+// Xiao offers; Liam declines. Quit for his daughter, said plainly, no sermon. (told_cig gates the longer version.)
+Xiao takes out a crushed packet and a lighter. Turns the lighter over in his fingers. #beat
+Want one? #xiao
+* [Nah, mate.] Nah, you're right. I mean— no, you're not right, I'm good. #liam
+    Xiao shrugs and holds the lighter away from you out of habit. #beat
+* [Go on, then. No.] Go on, then. …No. No, I'm not. Look at me, I'm sweating. #liam
+* [I quit.] I quit. Couple of years back. #liam
+-
+{told_cig:
+    Still quit? #xiao
+    Still quit. #liam
+    -> DONE
+}
+~ told_cig = true
+Just like that? #xiao
+* [For Missy.] Missy was about a month old. I stood out the back with one, thinking, I'm going to smell like this when I pick her up. #liam
+    That was it. Done. Never wanted one after. Well. Wanted. Never had. #liam
+    Good reason. #xiao
+    Xiao doesn't light it. He moves his chair a bit upwind, quietly, and says nothing about it. #beat
+* [Don't make it a thing.] Long story. Boring story. Don't let me stop you. #liam
+    He doesn't light it either. He puts the packet back in his pocket. #beat
+-
+-> DONE
+
+
+=== me_time ===
+// Liam loves fishing and rarely gets time that isn't for someone else. A small, quiet beat.
+{quiet:
+    Liam watches the float and doesn't say anything for a long minute. #beat
+- else:
+    Liam sits back and lets the line do the work for once. #beat
+}
+This is the longest I've sat down since, I dunno. Missy's christening? #liam
+* [Say it out loud.] I'm not good at this, you know. Sitting. I keep thinking I should be fixing something. #liam
+    What would you fix? #xiao
+    The gutter. The tap. The… everything. #liam
+    The lake's fine. #xiao
+    The lake's fine. #liam
+* [Just enjoy it.] Mate, this is good. This is really good. #liam
+    Don't jinx it. #xiao
 -
 -> DONE
