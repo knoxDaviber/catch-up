@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PAL } from './palette.js';
 import { ART } from '../assets/manifest.js';
-import { loadTex, artMat, cutout, updateArt, PLANE, WIND, NIGHT, sway } from './art.js';
+import { loadTex, artMat, cutout, updateArt, billboard, PLANE, WIND, NIGHT, sway } from './art.js';
 import { buildScatter } from './scatter.js';
 
 export const SEAT_X = 1.4;
@@ -123,10 +123,13 @@ function canopyTex(seed, n, cols) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; return t;
 }
 
-function boardTexture() {
-  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
-  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) { x.fillStyle = (f + r) % 2 ? '#e6ce9e' : '#8b5e3c'; x.fillRect(f * 32, r * 32, 32, 32); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+/** A soft painted bark wash for the stand-in stump: vertical streaks and blotches, wrapping round the trunk. */
+function barkTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); let s = 3; const r = () => (s = s * 16807 % 2147483647) / 2147483647;
+  x.fillStyle = '#8a6444'; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 70; i++) { x.fillStyle = r() < .5 ? `rgba(60,38,22,${.08 + r() * .12})` : `rgba(220,180,130,${.06 + r() * .1})`; x.fillRect(r() * 128, 0, 1 + r() * 4, 128); }
+  for (let i = 0; i < 14; i++) { const bx = r() * 128, by = r() * 128, g = x.createRadialGradient(bx, by, 0, bx, by, 26); g.addColorStop(0, 'rgba(255,235,200,.14)'); g.addColorStop(1, 'rgba(255,235,200,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; return t;
 }
 
 export function buildWorld(scene) {
@@ -215,8 +218,10 @@ export function buildWorld(scene) {
   cutout(scene, ART.cutouts.jetty, -13, -5.4, 2, { y: -.8, ax: 0, yaw: .6435 });
 
   // stump, board, chairs, people
-  const stump = new THREE.Mesh(new THREE.CylinderGeometry(.62, .7, BOARD_Y - .02, 9), mat(PAL.stump)); stump.position.set(0, (BOARD_Y - .02) / 2, 0); scene.add(stump);
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(1.2, .04, 1.2), mat(0x6b4a33)); slab.position.set(0, BOARD_Y - .02, 0); scene.add(slab);
+  // the stump is the painted cutout (ART.cutouts.stump) under the flat board; without it a smooth, softly painted trunk stands in. Both stump and slab stay as invisible click targets for the board.
+  const stump = new THREE.Mesh(new THREE.CylinderGeometry(.62, .7, BOARD_Y - .02, 24), new THREE.MeshLambertMaterial({ map: barkTexture() })); stump.position.set(0, (BOARD_Y - .02) / 2, 0); scene.add(stump);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(1.2, .04, 1.2), new THREE.MeshBasicMaterial({ visible: false })); slab.position.set(0, BOARD_Y - .02, 0); scene.add(slab);
+  cutout(scene, ART.cutouts.stump, 0, 0, BOARD_Y, { onLoad: () => { stump.visible = false; } });
   const liam = buildPerson(PAL.liamShirt, PAL.liamCap, PAL.liamChair, -SEAT_X, PAL.liamPants), xiao = buildPerson(PAL.xiaoShirt, PAL.xiaoCap, PAL.xiaoChair, SEAT_X, PAL.xiaoPants);
   scene.add(liam.group, xiao.group); W.people = { liam, xiao };
   const peopleArt = [personArt(scene, liam, 'liam', -SEAT_X), personArt(scene, xiao, 'xiao', SEAT_X)];
@@ -225,11 +230,10 @@ export function buildWorld(scene) {
   const cooler = [box(scene, -3.25, .22, 1.7, .8, .44, .45, PAL.cooler), box(scene, -3.25, .47, 1.7, .84, .06, .49, PAL.coolerLid)];
   cutout(scene, ART.props.cooler, -3.25, 1.7, .66, { onLoad: () => cooler.forEach(o => { o.visible = false; }) });
   const tent = new THREE.Mesh(new THREE.ConeGeometry(1.7, 1.7, 4), mat(PAL.tent)); tent.position.set(6.5, .85, -.5); tent.rotation.y = Math.PI / 4; tent.scale.set(1, 1, .9); scene.add(tent);
-  cutout(scene, ART.cutouts.tent, 6.5, -.5, 1.9, { onLoad: () => { tent.visible = false; } });
-  const [fx, fz] = FIRE, stones = []; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; stones.push(box(scene, fx + Math.cos(a) * .55, .08, fz + Math.sin(a) * .55, .22, .16, .2, PAL.stone)); }
-  const sticks = [limb(scene, [fx - .3, .12, fz - .2], [fx + .3, .18, fz + .2], .06, 0x5b4130), limb(scene, [fx + .3, .12, fz - .2], [fx - .3, .18, fz + .2], .06, 0x4f3828)];
+  const tentArt = cutout(scene, ART.cutouts.tent, 6.5, -.5, 1.9, { onLoad: () => { tent.visible = false; } });
+  const [fx, fz] = FIRE, stones = []; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28, m = new THREE.Mesh(new THREE.SphereGeometry(.12, 10, 8), mat(PAL.stone, { flatShading: false })); m.scale.set(1, .7, .9); m.position.set(fx + Math.cos(a) * .55, .07, fz + Math.sin(a) * .55); m.rotation.y = a; scene.add(m); stones.push(m); }
   // the painted stone ring (laid sticks and all) in their place, leaning back like the ground it lies on so it reads flat from the chairs
-  cutout(scene, ART.props.fire_ring, fx, fz, .95, { y: .01, onLoad: m => { m.rotation.x = -1; m.position.z = .4; stones.concat(sticks).forEach(o => { o.visible = false; }); } });
+  cutout(scene, ART.props.fire_ring, fx, fz, .95, { y: .01, onLoad: m => { m.rotation.x = -1; m.position.z = .4; stones.forEach(o => { o.visible = false; }); } });
 
   // cabin with a lantern, left
   const cabin = new THREE.Group(); cabin.position.set(-8.5, 0, -1); scene.add(cabin);
@@ -266,6 +270,40 @@ export function buildWorld(scene) {
       { key: 'board', who, obj: stump, at: [0, BOARD_Y + .5, 0] }, { key: 'board', who, obj: slab, at: [0, BOARD_Y + .5, 0] });   // the stump and its slab (main adds the board and pieces themselves)
   });
 
+  /* Camp things to click (CAMP in main.js): invisible hit boxes (raycasts ignore visibility) and a little painted business, all driven through W.fx:
+     the cooler's lid swings open and a can floats out toward you, the lantern switches, the tent shivers. The lantern and cairn move with the trip's layout. */
+  const hitMat = new THREE.MeshBasicMaterial({ visible: false }), hitAt = (x, y, z, w, h, d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), hitMat); m.position.set(x, y, z); scene.add(m); return m; };
+  const hotCool = hitAt(-3.25, .33, 1.7, .95, .66, .6), hotFire = hitAt(FIRE[0], .4, FIRE[1], 1.1, .9, 1.1), hotTent = hitAt(6.5, .8, -.5, 2, 1.6, 1.6), hotLamp = hitAt(0, -50, 0, .5, .7, .5), hotCairn = hitAt(0, -50, 0, .6, .7, .6), lampAt = [0, 0, 0], cairnAt = [0, 0, 0];
+  W.camp = { cairn: false };
+  [['liam', -1], ['xiao', 1]].forEach(([who]) => W.hot.push({ key: 'cooler', who, obj: hotCool, at: [-3.25, .85, 1.7] }, { key: 'campfire', who, obj: hotFire, at: [FIRE[0], 1, FIRE[1]] }, { key: 'tent', who, obj: hotTent, at: [6.5, 1.5, -.5] },
+    { key: 'lantern', who, obj: hotLamp, at: lampAt }, { key: 'cairn', who, obj: hotCairn, at: cairnAt }));
+  const card = (w, h, paint, x, y, z) => { const tex = new THREE.CanvasTexture(paint()); tex.colorSpace = THREE.SRGBColorSpace; const pv = new THREE.Group(), m = new THREE.Mesh(PLANE, artMat(tex, { transparent: true, alphaTest: .02 })); m.scale.set(w, h, 1); m.position.set(-w / 2, 0, .05); pv.add(m); pv.position.set(x, y, z); pv.visible = false; scene.add(pv); billboard(pv); return pv; };
+  const lid = card(.74, .62, () => {   // the cooler open: a dark mouth with ice and cans across the lid's top, the lid lifted behind it
+    const c = document.createElement('canvas'); c.width = 192; c.height = 160; const x = c.getContext('2d');
+    x.fillStyle = '#e9e0cc'; x.strokeStyle = 'rgba(110,90,60,.5)'; x.lineWidth = 3; x.beginPath(); x.roundRect(20, 6, 152, 104, 10); x.fill(); x.stroke(); x.fillStyle = 'rgba(255,255,255,.5)'; x.beginPath(); x.roundRect(30, 14, 132, 12, 6); x.fill();
+    x.fillStyle = '#1f3946'; x.beginPath(); x.roundRect(10, 116, 172, 42, 12); x.fill();
+    [[40, 134], [70, 140], [112, 136], [146, 138]].forEach(([bx, by], i) => { x.fillStyle = i % 2 ? 'rgba(210,235,245,.75)' : '#c9473a'; x.beginPath(); x.ellipse(bx, by, 13, 8, 0, 0, 6.283); x.fill(); });
+    return c; }, -3.25, .37, 1.7);
+  const can = card(.1, .16, () => {
+    const c = document.createElement('canvas'); c.width = 40; c.height = 64; const x = c.getContext('2d');
+    x.fillStyle = '#c9473a'; x.strokeStyle = 'rgba(60,20,16,.6)'; x.lineWidth = 2; x.beginPath(); x.roundRect(6, 6, 28, 52, 6); x.fill(); x.stroke();
+    x.fillStyle = '#d9d9d4'; x.fillRect(6, 6, 28, 7); x.fillRect(6, 51, 28, 7); x.fillStyle = '#f3ead8'; x.fillRect(6, 26, 28, 12); return c; }, -3.25, .5, 1.7);
+  let cf = null, tw = -1e9, lit = true, litK = 1, boost = 0, lastT = 0;
+  W.fx = {
+    cooler(now, to) { cf = { t0: now, to }; },
+    tent(now) { tw = now; },
+    /** The lantern's glow switches on or off (the painted lantern itself stays); returns whether it is lit. */
+    lamp() { lit = !lit; if (lit) boost = 1; return lit; },
+  };
+  W.animated.push(t => {
+    const dt = Math.min(.1, Math.max(0, (t - lastT) / 1000)); lastT = t; litK += ((lit ? 1 : 0) - litK) * Math.min(1, dt * 5); boost = Math.max(0, boost - dt * .4);
+    const e = t - tw, k = e > 0 && e < 800 ? 1 - e / 800 : 0; tentArt && tentArt.scale.set(1 + .03 * Math.sin(e * .035) * k, 1 + .02 * Math.sin(e * .026 + 1) * k, 1);
+    if (!cf) return; const c = t - cf.t0, op = Math.min(1, c / 260) * (1 - Math.min(1, Math.max(0, (c - 2400) / 260)));
+    lid.visible = op > .01; lid.scale.y = Math.max(.01, op);
+    const p1 = Math.min(1, Math.max(0, (c - 350) / 450)), p2 = Math.min(1, Math.max(0, (c - 800) / 700)), ez = p2 * p2 * (3 - 2 * p2);
+    can.visible = c > 350 && c < 1500; can.position.set(-3.25 + (cf.to[0] + 3.25) * ez, .45 + .45 * p1 + (cf.to[1] - .9) * ez + Math.sin(Math.PI * p2) * .2, 1.7 + (cf.to[2] - 1.7) * ez); can.scale.setScalar(1 - .35 * ez);
+    if (c > 2800) { cf = null; lid.visible = can.visible = false; } });
+
   // ground scatter (ART.scatter): nothing where it would hide the board, the chairs, the things by them, the rod's resting spot or the fire; only low things in front of
   // the chairs, where the floats must stay in sight; nothing out on the water. Mirrored, so both chairs get the same clearance.
   const keep = (x, z) => { const ax = Math.abs(x), by = (px, pz, r) => Math.hypot(ax - px, z - pz) < r;
@@ -286,12 +324,13 @@ export function buildWorld(scene) {
     let sd = seed; const r = () => (sd = sd * 16807 % 2147483647) / 2147483647; r(); r();   // two warm-up draws: nearby seeds part ways
     const one = a => a[Math.floor(r() * a.length)], avoid = [], trees = feet.slice();
     const put = (k, x, z, h, o = {}, rad = 0) => { cutout(vary, ART.cutouts[k] || ART.props[k], x, z, h, { flip: r() < .5, ...o }); if (rad) avoid.push([x, z, rad]); };
-    const glow = (k, x, z, h, o, s) => { put(k, x, z, h, { ...o, glow: 1, flip: false }); const V = vary; loadTex(ART.props[k]).then(t => { if (!t) return; const g = new THREE.Sprite(HALO); g.position.set(x, (o.y || 0) + h * .55, z + .1); g.scale.set(s, s, 1); V.add(g); }); };
+    const glow = (k, x, z, h, o, s) => { put(k, x, z, h, { ...o, glow: 1, flip: false }); if (k === 'lantern') { hotLamp.position.set(x, (o.y || 0) + h / 2, z); lampAt.splice(0, 3, x, (o.y || 0) + h + .35, z); } const V = vary; loadTex(ART.props[k]).then(t => { if (!t) return; const g = new THREE.Sprite(HALO); g.position.set(x, (o.y || 0) + h * .55, z + .1); g.scale.set(s, s, 1); V.add(g); }); };
     const spots = LILY.slice(); for (let n = 3; n--;) { const [x, z] = spots.splice(Math.floor(r() * spots.length), 1)[0], big = r() < .7; put(big ? 'lily_2' : 'lily_1', x + (r() - .5) * .6, z, big ? 1 : .7, { y: -.14 }); }
     const boat = one([[-6.5, -9.2, 1, { y: -.2 }, 0], [-5.7, -4.3, .95, {}, 1.2], [10.3, -4.4, .95, {}, 1.2]]); put('boat', ...boat);   // tied at the jetty's end, or pulled up on the bank
     const onCooler = r() < .6; glow('lantern', onCooler ? -3.25 : -3.95, onCooler ? 1.7 : 1.25, .36, onCooler ? { y: .56, dz: .06 } : {}, .9);
     if (r() < .6) { const [x, z, o] = one([[2.25, 2.15, {}], [5.3, 1.1, {}], ...(onCooler ? [] : [[-3.25, 1.7, { y: .56, dz: .06 }]])]); glow('firefly_jar', x, z, .2, o, .5); }
-    if (r() < .5) put('cairn', ...one([[-4.7, -4.25], [4.6, -4.4], [12.3, -4.1]]), .45, {}, .4);
+    W.camp.cairn = false; hotCairn.position.y = -50;
+    if (r() < .5) { const [x, z] = one([[-4.7, -4.25], [4.6, -4.4], [12.3, -4.1]]); put('cairn', x, z, .45, {}, .4); W.camp.cairn = true; hotCairn.position.set(x, .3, z); cairnAt.splice(0, 3, x, .8, z); }
     if (r() < .5) put('blanket', ...one([[4.6, 2.5], [-2.3, 3.3]]), .4, {}, .5);
     const [cx, cz] = one([[5.2, .6], [7.9, .7], [5.1, -1.7]]); put('backpack', cx + .45, cz + .1, .55, {}, .4); if (r() < .7) put('bedroll', cx, cz, .32, {}, .4);   // by the tent
     const lg = one([[-9.8, 6.2], [8.6, 7.4], [-5.2, 10.6]]), sp = one([[10.4, 4.2], [-11.2, 3.4], [4.2, 10.2]]); put('log', ...lg, .52, {}, 1); put('stump', ...sp, .5, {}, .5);
@@ -301,7 +340,7 @@ export function buildWorld(scene) {
 
   /** cam: for the painted planes to face it; turn (0..1): how far the people have turned from the lake to the board. */
   W.update = (t, cam, turn = 0) => { W.animated.forEach(f => f(t)); W.lakeDrift.value.set(t * 4e-6, t * 1.5e-6, -t * 3e-6, t * 2.5e-6); WIND.value = W.water.wT.value = t / 1000 * (CALM ? .35 : 1);
-    HALO.opacity = NIGHT.value * (.5 + .04 * Math.sin(t / 230) * Math.sin(t / 370));   // the lantern's and jar's glow after dark, a slight flicker
+    HALO.opacity = litK * (NIGHT.value * (.5 + .04 * Math.sin(t / 230) * Math.sin(t / 370)) + (1 - NIGHT.value) * boost * .45);   // the lantern's and jar's glow after dark, a slight flicker; switching the lantern on gives a brief glow by day too
     if (cam) { updateArt(cam); scatter && scatter(cam); peopleArt.forEach(f => f(cam, turn)); } };
   return W;
 }

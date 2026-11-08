@@ -1,4 +1,4 @@
-import { MUSIC, SFX, AMBIENCE } from '../assets/manifest.js';
+import { MUSIC, SFX, AMBIENCE, VO } from '../assets/manifest.js';
 
 /* Sound: music playlist with crossfade, one-shot effects, and ambience that follows the time of day and the fire.
    Every sound has a synthesised placeholder, so the game works with no files. Files named in assets/manifest.js
@@ -8,7 +8,7 @@ let LIVE = null;
 export const cue = (name, pan = 0) => LIVE && LIVE.sfx(name, pan);
 export function createAudio(settings) {
   const A = { ctx: null, trackId: null, trackError: null }; LIVE = A;
-  let master, musicBus, sfxBus, ambBus, noiseBuf;
+  let master, musicBus, sfxBus, ambBus, voiceBus, noiseBuf, duck = 1, voiceSrc = null;
   const buffers = new Map(), loading = new Map();
   let curEl = null, curStop = null, fadeTimer = 0, padTimer = 0;
   const nowT = () => A.ctx.currentTime;
@@ -18,8 +18,8 @@ export function createAudio(settings) {
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     A.ctx = new AC();
     master = A.ctx.createGain(); master.connect(A.ctx.destination);
-    musicBus = A.ctx.createGain(); sfxBus = A.ctx.createGain(); ambBus = A.ctx.createGain();
-    [musicBus, sfxBus, ambBus].forEach(b => b.connect(master));
+    musicBus = A.ctx.createGain(); sfxBus = A.ctx.createGain(); ambBus = A.ctx.createGain(); voiceBus = A.ctx.createGain();
+    [musicBus, sfxBus, ambBus, voiceBus].forEach(b => b.connect(master));
     noiseBuf = A.ctx.createBuffer(1, A.ctx.sampleRate * 2, A.ctx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     applyVolumes(); startAmbience(); playTrack(settings.track);
@@ -27,7 +27,7 @@ export function createAudio(settings) {
   function applyVolumes() {
     if (!A.ctx) return;
     const m = settings.muted ? 0 : 1, t = nowT();
-    master.gain.setTargetAtTime(m, t, .05); musicBus.gain.setTargetAtTime(settings.musicVol, t, .1);
+    master.gain.setTargetAtTime(m, t, .05); musicBus.gain.setTargetAtTime(settings.musicVol * duck, t, .1); voiceBus.gain.setTargetAtTime(settings.voiceVol ?? 1, t, .05);
     sfxBus.gain.setTargetAtTime(settings.sfxVol, t, .05); ambBus.gain.setTargetAtTime(settings.ambVol, t, .1);
     if (curEl) curEl.volume = 1;
   }
@@ -69,6 +69,12 @@ export function createAudio(settings) {
     quack: () => [0, .2].forEach(d => { tone(430, .13, { type: 'sawtooth', vol: .035, slide: -120, delay: d, attack: .02 }); tone(640, .1, { type: 'sine', vol: .03, slide: -150, delay: d, attack: .02 }); }),
     birdcall: () => { const f = 1500 + Math.random() * 500; for (let i = 0; i < 3; i++) tone(f + (i % 2) * 380, .12, { vol: .035, slide: -260, delay: i * .17 }); },
     tweet: () => { const f = 3300 + Math.random() * 600; for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) tone(f, .06, { vol: .03, slide: 700, delay: i * .1 }); },
+    cooler: () => { noise(.16, { freq: 260, vol: .2, attack: .01 }); tone(120, .12, { vol: .12, slide: -40 }); noise(.08, { freq: 2600, type: 'bandpass', q: 1.5, vol: .04, delay: .14 }); },
+    cancrack: () => { tone(1800, .03, { type: 'square', vol: .06 }); noise(.5, { freq: 5200, type: 'highpass', q: .5, vol: .07, attack: .02, sweep: -2500, delay: .03 }); tone(900, .05, { type: 'triangle', vol: .06, delay: .02, slide: -300 }); },
+    crackle: () => { for (let i = 0; i < 9; i++) noise(.03 + Math.random() * .05, { freq: 1200 + Math.random() * 3000, type: 'bandpass', q: 1.2, vol: .1, delay: i * .06 + Math.random() * .05 }); noise(.4, { freq: 700, vol: .05, attack: .03 }); },
+    zip: () => { for (let i = 0; i < 9; i++) tone(1400 + i * 70, .02, { type: 'square', vol: .02, delay: i * .035 }); noise(.35, { freq: 3000, type: 'bandpass', q: 1, vol: .03, attack: .1, sweep: 800 }); },
+    stone: () => { tock(700, 0, .16); tock(520, .09, .1); },
+    lamp: () => { tone(1500, .03, { type: 'square', vol: .05 }); tone(1100, .05, { type: 'triangle', vol: .06, delay: .04 }); },
     possum: () => { noise(.22, { freq: 900, type: 'bandpass', q: 1.5, vol: .05, attack: .05 }); tone(150, .2, { type: 'sawtooth', vol: .012, slide: -30, delay: .3, attack: .05 }); },
   };
   async function getBuffer(name, src) {
@@ -82,6 +88,17 @@ export function createAudio(settings) {
     if (src) { getBuffer('sfx:' + name, src).then(buf => { if (!buf) { curPan = pan; try { SYN[name] && SYN[name](); } finally { curPan = 0; } return; } const s = A.ctx.createBufferSource(); s.buffer = buf; s.connect(panTo(sfxBus, pan)); s.start(); }); return; }
     curPan = pan; try { SYN[name] && SYN[name](); } finally { curPan = 0; }
   };
+
+  /* ---------- voice acting: a story line tagged #vo:<id> plays VO[id] on its own bus, and the music ducks while it speaks. Unknown ids do nothing. ---------- */
+  A.voice = id => {
+    const src = VO[id]; if (!src || !A.ctx || settings.muted || !(settings.voiceVol ?? 1)) return;
+    getBuffer('vo:' + id, src).then(buf => {
+      if (!buf) return; if (voiceSrc) try { voiceSrc.stop(); } catch (e) { /* already over */ }
+      const s = voiceSrc = A.ctx.createBufferSource(); s.buffer = buf; s.connect(voiceBus); duck = .45; applyVolumes();
+      s.onended = () => { if (voiceSrc === s) { voiceSrc = null; duck = 1; applyVolumes(); } }; s.start();
+    });
+  };
+  A.stopVoice = () => { if (voiceSrc) { try { voiceSrc.stop(); } catch (e) { /* already over */ } } };
 
   /* ---------- music ---------- */
   const track = id => MUSIC.find(t => t.id === id) || MUSIC[0];

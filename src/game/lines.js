@@ -47,6 +47,11 @@ export const LINES = {
     radioTip: ['There is a radio by your chair, if you want music. It mostly works.'],
     baitToss: ['Bribery. Fine.', 'Let us see who takes the bait.'],
     castRemind: ['Your line is still out of the water, by the way.', 'You know you have to cast, right? They will not climb up.'],
+    cooler: ['Is there one in there for me?', 'The last one, I hope. For me.', 'Cold? Good. Save me one.', 'Do not look at me. I am dry. Mostly.'],
+    lanternOn: ['Good call. Atmosphere.', 'Better. It was getting gloomy.'], lanternOff: ['Saving the battery. Fair.', 'Dark is fine. Dark is honest.'],
+    fire: ['Careful. You will lose an eyebrow.', 'It was fine as it was.', 'Mm. Sparks. Very dramatic.'], fireCold: ['It is out. Nothing to poke.'],
+    tent: ['Nobody is in there. I checked.', 'Do not open it. It still smells like 2016.', 'That tent has seen things. Mostly rain.'],
+    cairn: ['Someone was patient.', 'I always wondered who builds these.', 'Leave it. It is balanced. That is more than I can say for me.'],
   },
   liam: {
     yourMove: ['Your move, mate.', 'Go on, tear me apart.', 'Whenever. I am not going anywhere.'],
@@ -93,6 +98,11 @@ export const LINES = {
     radioTip: ['Radio is by your chair if you want some tunes. Heaps better than my singing.'],
     baitToss: ['Berley time! Dinner is served, fellas.', 'Free lunch, ladies and gentlemen. Do not all rush at once.'],
     castRemind: ['Your line is still out, mate. Fish will not jump in on their own.'],
+    cooler: ['Oh, grab me one while you are in there, mate!', 'Is that the good stuff or whatever Mary packed? It is always lemon-lime.', 'Ahh, that pssh. Best sound in the world, that. Beats my singing.', 'Careful, the ice has gone a bit soggy. I take no responsibility.'],
+    lanternOn: ['Ahh, mood lighting. Very romantic. Do not read into it.', 'There we go. Now it is a proper campsite.'], lanternOff: ['Lights out, is it? Spooky. I like it.', 'Saving the battery? Smart. I would have left it on all night.'],
+    fire: ['Poke away, mate. That is the whole job of a bloke at a fire.', 'Sparks! Beautiful. Mind the eyebrows.', 'Oi, do not stir the fire like you stir the pot. Gently.'], fireCold: ['Nothing burning yet. Give it a minute.'],
+    tent: ['Tent is spotless. Do not check the corners.', 'That tent has been to more uni camps than I have. 2016, remember?', 'Do not look in there. Honestly. Do not.'],
+    cairn: ['Add a rock! Everyone adds a rock. It is the law.', 'Somebody built that. Respect. Somebody with more patience than me.', 'That is not a pile of rocks, that is art. Hands off. Well, one more.'],
   },
 };
 

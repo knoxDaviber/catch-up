@@ -292,7 +292,8 @@ function playInk(path, done, { auto = false } = {}) {
       // #key: the choices after it in this passage wait for an answer; #focus: no timers and nothing else until the passage ends
       if (ln.tags.includes('key')) keyNext = true; if (ln.tags.includes('focus')) setFocus(true); inkFlags(ln.tags);
       // untagged lines: a bare "…" is your own silence, anything else is a stage direction
-      const tg = ln.tags.filter(t => !INK_FLAGS.includes(t)), who = tg.includes(player) || (!tg.length && ln.text === '…') ? 'me' : tg.includes(fk()) ? 'friend' : 'beat';
+      const vo = ln.tags.find(t => t.startsWith('vo:')); if (vo) audio.voice(vo.slice(3).trim());   // #vo:<id> plays that voice clip if the manifest has one
+      const tg = ln.tags.filter(t => !INK_FLAGS.includes(t) && !t.startsWith('vo:')), who = tg.includes(player) || (!tg.length && ln.text === '…') ? 'me' : tg.includes(fk()) ? 'friend' : 'beat';
       if (who === 'beat') log.push(msg('', ln.text, null, { ...keep, beat: true }));
       else log.push(msg(who === 'me' ? nameOf(player) : friend(), ln.text, null, { ...keep, mine: who === 'me' }));
       setTimeout(step, who === 'me' ? 1000 : 1400 + ln.text.length * 38);
@@ -590,24 +591,33 @@ function galPick(e) {
   const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   galRay.setFromCamera(galNdc, gallery.camera); const hit = galRay.intersectObjects(gallery.fishMeshes(), false)[0]; return hit ? hit.object.userData.fish : null;
 }
+function galPickIn(e, meshes) {
+  const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  galRay.setFromCamera(galNdc, gallery.camera); const hit = galRay.intersectObjects(meshes, false)[0]; return hit ? hit.object : null;
+}
 canvas.addEventListener('pointerdown', e => {
   if (scene_ !== 'gallery') return;
   if (gallery.view === 'room') {   // from across the room, any click on the tank (fish included) walks you over to it
     const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); galRay.setFromCamera(galNdc, gallery.camera);
-    if (galRay.intersectObject(gallery.glass, false).length) { gallery.setView('tank'); $('galNote').textContent = 'Drag a fish to move it, or lift it out toward the window to let it go. Click one to see its name.'; audio.sfx('pop'); return; }
+    if (galRay.intersectObject(gallery.glass, false).length) { gallery.setView('tank'); $('galNote').textContent = 'Drag a fish to move it, or lift it out toward the window to let it go. Click one to see its name. Drag the ornaments to rearrange them; click one to set it back on the table, or click one on the table to add it.'; audio.sfx('pop'); return; }
   }
   const f = galPick(e);
   if (f) { drag = { f, x0: e.clientX, y0: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); audio.sfx('pop'); return; }
+  const dm = galPickIn(e, gallery.decorMeshes());
+  if (dm) { drag = { d: dm.userData.decor, x0: e.clientX, y0: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); audio.sfx('pop'); return; }
+  const tm = galPickIn(e, gallery.trayMeshes());
+  if (tm) { gallery.decorToTank(tm.userData.decor); audio.sfx('pop'); return; }
   hideFishInfo();
   const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); galRay.setFromCamera(galNdc, gallery.camera);
 });
 canvas.addEventListener('pointermove', e => {
   if (scene_ !== 'gallery') return;
-  if (!drag) { let cur = galPick(e) ? 'grab' : ''; if (!cur && gallery.view === 'room') { const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); galRay.setFromCamera(galNdc, gallery.camera); if (galRay.intersectObject(gallery.glass, false).length) cur = 'zoom-in'; } canvas.style.cursor = cur; return; }
+  if (!drag) { let cur = galPick(e) || galPickIn(e, gallery.decorMeshes()) ? 'grab' : galPickIn(e, gallery.trayMeshes()) ? 'pointer' : ''; if (!cur && gallery.view === 'room') { const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); galRay.setFromCamera(galNdc, gallery.camera); if (galRay.intersectObject(gallery.glass, false).length) cur = 'zoom-in'; } canvas.style.cursor = cur; return; }
   if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 6) drag.moved = true;
   if (drag.moved) {
     const r = canvas.getBoundingClientRect(); galNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    galRay.setFromCamera(galNdc, gallery.camera); if (galRay.ray.intersectPlane(galPlane, galPt)) { gallery.tank.worldToLocal(galPt); drag.out = gallery.inRelease(galPt.x, galPt.y); gallery.hold(drag.f, galPt.x, galPt.y, drag.out); }
+    galRay.setFromCamera(galNdc, gallery.camera); if (drag.d) { if (galRay.ray.intersectPlane(galPlane, galPt)) { gallery.tank.worldToLocal(galPt); gallery.decorDrag(drag.d, galPt.x); } canvas.style.cursor = 'grabbing'; return; }
+    if (galRay.ray.intersectPlane(galPlane, galPt)) { gallery.tank.worldToLocal(galPt); drag.out = gallery.inRelease(galPt.x, galPt.y); gallery.hold(drag.f, galPt.x, galPt.y, drag.out); }
     relHint(drag.out && e); canvas.style.cursor = 'grabbing';
   }
 });
@@ -621,7 +631,7 @@ function letGoFish(f) {
   setTimeout(() => { if (scene_ !== 'gallery') return; const n = $('galNote'), was = n.textContent, said = `${friend()}: ${line(fk(), 'tankRelease')}`;   // captions are hidden in here: the friend's line shows in the note for a moment
     audio.sfx('blip'); n.hidden = false; n.textContent = said; setTimeout(() => { if (n.textContent === said) n.textContent = gallery.fishCount() ? was : 'The tank is empty. Catch a fish and give it a name, and it will move in.'; }, 4200); }, 900);
 }
-const endDrag = () => { if (!drag) return; relHint(null); if (drag.moved && drag.out) { letGoFish(drag.f); if (!drag.f.leaving) gallery.release(drag.f); } else { if (!drag.moved) showFishInfo(drag.f); gallery.release(drag.f); } drag = null; canvas.style.cursor = ''; };
+const endDrag = () => { if (!drag) return; if (drag.d) { if (!drag.moved) gallery.decorToTray(drag.d); else gallery.decorSave(); drag = null; canvas.style.cursor = ''; return; } relHint(null); if (drag.moved && drag.out) { letGoFish(drag.f); if (!drag.f.leaving) gallery.release(drag.f); } else { if (!drag.moved) showFishInfo(drag.f); gallery.release(drag.f); } drag = null; canvas.style.cursor = ''; };
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', () => { if (drag) drag.out = false; endDrag(); });   // a cancelled drag never lets go
 $('mGallery').addEventListener('click', openGallery);
 $('galBack').addEventListener('click', () => { if (!$('fishInfo').hidden) hideFishInfo(); else if (gallery.view === 'tank') { gallery.setView('room'); hideFishInfo(); $('galNote').hidden = false; $('galNote').textContent = 'Click the tank for a closer look.'; } else closeGallery(); });
@@ -707,6 +717,21 @@ updateNowPlaying(); $('nowPlay').addEventListener('click', nextTrack); audio.onT
 // Drag to turn your head (grab the view and pull it); a click that doesn't drag strikes, or uses whatever is under the pointer.
 // The board side has less room: that is what the board view is for.
 // The radio and the bucket beside your chair are how music and the fish gallery are reached during a game.
+/* Camp things to click: each does a small action (cooler: lid, can, crack; fire: sparks; lantern; tent; cairn), and now and then the friend reacts (lines.js, one per kind).
+   Never during a bite, a fight or a focus beat; the friend's line has a cooldown (per kind and overall) and is skipped while a conversation is on. */
+const camp = { at: {}, any: 0, busy: 0 };
+const campOn = () => scene_ === 'game' && !fishing.bite && !fishing.fighting && !focus;
+function campSay(key) { const n = performance.now(); if (talking || asking || n - camp.any < 6000 || n - (camp.at[key] || -1e9) < 15000) return; camp.at[key] = camp.any = n; bark(key, {}, 3600); }
+function openCooler() {
+  const n = performance.now(); if (n < camp.busy) return; camp.busy = n + 3000;
+  world.fx.cooler(n, [mySeatX(), 1, .4]); audio.sfx('cooler');
+  setTimeout(() => { if (scene_ === 'game') { audio.sfx('cancrack'); toast('You crack a cold one.'); } }, 900);
+  setTimeout(() => { if (scene_ === 'game') campSay('cooler'); }, 1700);
+}
+function pokeFire() { if (campfire.poke()) { audio.sfx('crackle'); campSay('fire'); } else campSay('fireCold'); }
+function flickLantern() { const on = world.fx.lamp(); audio.sfx('lamp'); campSay(on ? 'lanternOn' : 'lanternOff'); }
+function pokeTent() { world.fx.tent(performance.now()); audio.sfx('zip'); campSay('tent'); }
+function addStone() { audio.sfx('stone'); campSay('cairn'); }
 const HOT = {
   radio: { label: () => `Radio \u00b7 ${settings.radio === false || settings.muted || !settings.musicVol ? 'off' : trackName()}`, click: nextTrack,
     wheel: d => { settings.musicVol = clamp(Math.round((settings.musicVol - Math.sign(d) * .05) * 100) / 100, 0, 1); audio.applyVolumes(); saveSettings(settings); toast(`Radio volume ${Math.round(settings.musicVol * 100)}%`); updateNowPlaying(); } },
@@ -714,6 +739,11 @@ const HOT = {
   rod: { label: () => 'Double-click to put the rod down', on: () => !fishing.stowed, dbl: true, click: () => setStowed(true) },   // dbl: a single click does nothing here (so a stray click while looking around can't put the rod away); two within 350ms, or a right-click, does
   pickup: { label: () => 'Pick up the rod', on: () => fishing.stowed, click: openTackle },
   bait: { label: () => 'Toss some bait', click: tossBait },
+  cooler: { label: () => 'Cooler · grab a drink', on: () => campOn(), click: openCooler },
+  campfire: { label: () => 'Poke the fire', on: () => campOn() && campfire.level > .2, click: pokeFire },
+  lantern: { label: () => 'Lantern', on: () => campOn(), click: flickLantern },
+  tent: { label: () => 'Tent', on: () => campOn(), click: pokeTent },
+  cairn: { label: () => 'Cairn · add a stone', on: () => campOn() && world.camp.cairn, click: addStone },
   board: { label: () => 'Play chess', on: () => !fishing.bite, click: () => { if (fishing.bite) strike(); else goView('board'); } },   // a bite takes the click
 };
 let hot = null, look = null, lookDrag = null;   // look: last pointer position over the canvas, in -1..1
@@ -747,7 +777,7 @@ function openSettings() {
   $('sCycle').checked = settings.cycle; $('sLen').value = settings.dayMin; $('sLenOut').textContent = `${settings.dayMin} min`;
   $('sFire').value = settings.fire; $('sSway').checked = settings.sway; $('sTilt').checked = settings.tilt; $('sSway').disabled = reduce;
   $('sMute').checked = settings.muted; $('sRadio').checked = settings.radio !== false; $('sFilter').value = FILTERS.includes(settings.filter) ? settings.filter : 'none';
-  [['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol']].forEach(([id, k]) => { $(id).value = settings[k]; $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; });
+  [['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol'], ['sVoice', 'voiceVol']].forEach(([id, k]) => { $(id).value = settings[k]; $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; });
   const tr = $('sTrack'); tr.textContent = ''; audio.tracks().forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; tr.appendChild(o); }); tr.value = settings.track; $('sMode').value = settings.playMode;
   $('sChallenge').checked = !!settings.challenge; $('sAdapt').checked = !!settings.chessAdaptive; $('sChess').value = settings.chessLevel; $('sChessOut').textContent = chessWord(settings.chessLevel);
   $('sTrip').hidden = !(scene_ === 'game' || loadTrip('liam')); $('sNewAsk').hidden = true; $('sNew').hidden = false;
@@ -766,7 +796,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('settin
 $('sCycle').addEventListener('change', e => { settings.cycle = e.target.checked; applySettings(); });
 $('sLen').addEventListener('input', e => { settings.dayMin = parseInt(e.target.value, 10); $('sLenOut').textContent = `${settings.dayMin} min`; applySettings(); });
 $('sMute').addEventListener('change', e => { settings.muted = e.target.checked; audio.applyVolumes(); updateNowPlaying(); });
-[['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol']].forEach(([id, k]) => $(id).addEventListener('input', e => { settings[k] = parseFloat(e.target.value); $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; audio.applyVolumes(); if (k === 'sfxVol') audio.sfx('catch'); if (k === 'musicVol') updateNowPlaying(); }));
+[['sMusic', 'musicVol'], ['sSfx', 'sfxVol'], ['sAmb', 'ambVol'], ['sVoice', 'voiceVol']].forEach(([id, k]) => $(id).addEventListener('input', e => { settings[k] = parseFloat(e.target.value); $(id + 'Out').textContent = Math.round(settings[k] * 100) + '%'; audio.applyVolumes(); if (k === 'sfxVol') audio.sfx('catch'); if (k === 'musicVol') updateNowPlaying(); }));
 $('sTrack').addEventListener('change', e => { audio.setTrack(e.target.value); $('sRadio').checked = true; updateNowPlaying(); });
 $('sRadio').addEventListener('change', e => { audio.setRadio(e.target.checked); saveSettings(settings); updateNowPlaying(); });
 $('sFilter').addEventListener('change', e => { settings.filter = e.target.value; applySettings(); saveSettings(settings); });
@@ -807,7 +837,7 @@ function pickSquare(e) {
   const r = canvas.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObjects(board.squares, false)[0]; return hit ? hit.object.userData.sq : null;
+  return board.pick(ray);
 }
 canvas.addEventListener('pointerdown', e => {
   if (scene_ !== 'game' || e.button) return;   // the right button is the rod's shortcut (contextmenu below)
@@ -860,7 +890,7 @@ function frame(now) {
   fishing.night = dayNight.night; rig.step(now, dt); fishing.stepFish(dt, now); if (scene_ === 'game') fishing.stepRod(now); lakeUpdate(now); bait.update(now); world.update(now, camera, rig.u * (1 - rig.wide));
   dayNight.update(dt); campfire.update(now, dt, settings.fire === 'always' || (settings.fire === 'auto' && dayNight.night > .28) ? 1 : 0, dayNight.night);
   if ((fishing.rod.phase === 'reel' || fight.active && fight.inside) && now - reelClickT > 150) { reelClickT = now; audio.sfx('reelclick'); }
-  updateDial(); updateFight(dt); board.update(now); placeHotLabel(); placeWind(); placeTackle();
+  updateDial(); updateFight(dt); board.update(now, camera); placeHotLabel(); placeWind(); placeTackle();
   stage.classList.toggle('night', dayNight.night > .5);
   syncPeople(); if (scene_ === 'select') placePick();
   if (scene_ === 'gallery') { gallery.update(now, dt, dayNight.night); renderer.render(gallery.scene, gallery.camera); } else renderer.render(scene, camera);

@@ -38,6 +38,16 @@ export const SFX = {
   plop: null,       // the float landing on the water
   reelclick: null,  // one click of the reel while reeling in or fighting
   croak: null,      // a frog croaking
+  cooler: null,     // the cooler's lid thumping open or shut
+  cancrack: null,   // a can opening (pssh)
+  crackle: null,    // the campfire poked: a burst of crackles
+  zip: null,        // the tent flap
+  stone: null,      // a stone set on the cairn
+  lamp: null,       // the lantern switched
+};
+
+/* VO: optional voice acting, id -> file. A story line tagged #vo:<id> plays VO[id] on the voice bus (music ducks a little). Missing ids are skipped silently. */
+export const VO = {   // e.g. liam_arrival_01: 'assets/audio/vo/liam_arrival_01.ogg'
 };
 
 export const AMBIENCE = {
@@ -77,10 +87,17 @@ export const ART = {
     boat: A + 'cutouts/boat.webp', lily_1: A + 'cutouts/lily_1.webp', lily_2: A + 'cutouts/lily_2.webp', log: A + 'cutouts/log.webp', stump: A + 'cutouts/stump.webp' },   // the trip's layout pieces (world.js setLayout): rowboat, lily pads, fallen log, stump
   props: { radio: A + 'props/radio.webp', bucket: A + 'props/bucket.webp', crate: A + 'props/crate.webp', chair: A + 'props/chair.webp', cooler: A + 'props/cooler.webp', bait: A + 'props/bait.webp',   // chair: only for an empty chair (none yet)
     lantern: A + 'props/lantern.webp', firefly_jar: A + 'props/firefly_jar.webp', fire_ring: A + 'props/fire_ring.webp',   // lantern and jar glow at night; the stone ring lies under the campfire
-    cairn: A + 'props/cairn.webp', blanket: A + 'props/blanket.webp', bedroll: A + 'props/bedroll.webp', backpack: A + 'props/backpack.webp' },   // optional bits of camp, placed per trip
+    cairn: A + 'props/cairn.webp', blanket: A + 'props/blanket.webp', bedroll: A + 'props/bedroll.webp', backpack: A + 'props/backpack.webp',   // optional bits of camp, placed per trip
+    logs: null },   // two crossed logs for the campfire (null: painted procedural logs, or the logs in the fire_ring art when that is there)
+  // the chess set, flat and painted (null = drawn in code). top: the board with its frame; pieces: standing cards facing the camera, w = cream, b = dark walnut
+  board: { top: null, pieces: { w: { p: null, n: null, b: null, r: null, q: null, k: null }, b: { p: null, n: null, b: null, r: null, q: null, k: null } } },
   critters: { dragonfly: A + 'critters/dragonfly.webp' },   // lake_life: a daytime dragonfly over the shallows
-  // gallery: painted cabin interior plate (null = the 3D room), plus indoor activity scenes of Liam and Xiao (transparent WebPs, art/gallery/<id>.webp). src null = a placeholder pair made from the people sprites.
-  gallery: { backdrop: A + 'gallery/interior.webp', activities: [{ id: 'couch', src: null }, { id: 'phone', src: null }, { id: 'cards', src: null }, { id: 'kettle', src: null }, { id: 'window', src: null }] },
+  /* gallery: painted cabin interior plate (null = the 3D room); tank (water, gravel, back), tank_front (glass, rim, reflections, transparent) and table are flat painted planes, null = a soft canvas placeholder.
+     decor: tank ornaments (transparent, bottom-aligned), null = placeholder. activities: one standing sprite per friend per activity (transparent WebP, art/gallery/<id>_<liam|xiao>.webp), null = their standing sprite plus a small prop.
+     Specs, sizes and prompts for all of these are in public/assets/README.md. */
+  gallery: { backdrop: A + 'gallery/interior.webp', tank: null, tank_front: null, table: null,
+    decor: { rock: null, plant: null, castle: null, driftwood: null, shell: null },
+    activities: ['phone', 'wall', 'window', 'stove', 'tea', 'read'].map(id => ({ id, liam: null, xiao: null })) },
   // ground scatter (transparent, sliced from one sheet): rocks, pebbles and grass dotted along the shore, the path and the feet of trees and buildings. An empty list skips that kind.
   scatter: { boulder: N('boulder', 4), rock: N('rock', 6), pebble: N('pebble', 18), tuft: N('tuft', 6), clump: N('clump', 3), bush: N('bush', 4), flowers: N('flowers', 4) },
   ground: { grass: A + 'ground/grass.webp', path: A + 'ground/path.webp', bank: A + 'ground/bank.webp', water: A + 'ground/water.webp' },   // tileable; water tiles the lake under the day/night lake colour

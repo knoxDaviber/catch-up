@@ -31,7 +31,9 @@ export function cutout(parent, path, x, z, h, { y = 0, ax = .5, yaw = null, dz =
   return pivot;
 }
 
-export const faceCamera = (o, cam) => { o.rotation.y = Math.atan2(cam.position.x - o.position.x, cam.position.z - o.position.z); };
+/** Make a group turn to face the camera about Y each frame (it drops out once it is removed from the scene). */
+export const billboard = o => { bills.push(o); return o; };
+export const faceCamera =(o, cam) => { o.rotation.y = Math.atan2(cam.position.x - o.position.x, cam.position.z - o.position.z); };
 const attached = o => { while (o.parent) o = o.parent; return !!o.isScene; };   // a pivot inside a detached layout group still has a parent
 export function updateArt(cam) { for (let i = bills.length; i--;) if (attached(bills[i])) faceCamera(bills[i], cam); else bills.splice(i, 1); }   // removed cutouts (a relaid layout) drop out
 /** Every painted material takes this colour, so the art darkens and warms with the light like the 3D world; glowing ones lift toward warm light by `night` (0..1, also kept in NIGHT.value). */
